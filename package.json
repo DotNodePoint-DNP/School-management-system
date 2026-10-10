@@ -1,0 +1,14 @@
+{
+  "name": "school-management-system",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API \"pnpm dev:web\" \"pnpm dev:api\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "build:web": "pnpm --filter web build",
+    "build:api": "pnpm --filter api build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
