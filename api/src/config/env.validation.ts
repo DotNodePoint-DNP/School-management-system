@@ -6,6 +6,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -32,6 +33,21 @@ class EnvVars {
   @IsString()
   @IsNotEmpty()
   CORS_ORIGINS!: string;
+
+    @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  JWT_ACCESS_TTL_SECONDS: number = 900;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  REFRESH_TOKEN_TTL_DAYS: number = 7;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

@@ -7,11 +7,13 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
+import cookieParser from 'cookie-parser';
 
 export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.use(helmet());
+  app.use(cookieParser());
   app.enableCors({
     origin: config
       .getOrThrow<string>('CORS_ORIGINS')
