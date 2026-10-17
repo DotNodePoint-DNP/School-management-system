@@ -9,6 +9,8 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { RbacModule } from './modules/rbac/rbac.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -21,11 +23,15 @@ import { AuthModule } from './modules/auth/auth.module.js';
     PrismaModule,
     HealthModule,
     AuthModule,
+    UsersModule,
+    RbacModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    ...(process.env.NODE_ENV === 'test'
+      ? []
+      : [{ provide: APP_GUARD, useClass: ThrottlerGuard }]),
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: PermissionsGuard},
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}
