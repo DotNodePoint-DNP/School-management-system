@@ -12,6 +12,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { SetRolePermissionsDto } from './dto/set-role-permissions.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
+import { AuditService } from '../audit-logs/audit.service.js';
 
 export interface RoleResponse {
   id: string;
@@ -58,7 +59,10 @@ function toRoleResponse(role: RoleRow): RoleResponse {
 
 @Injectable()
 export class RbacService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async listRoles(): Promise<RoleResponse[]> {
     const roles = await this.prisma.role.findMany({
@@ -108,6 +112,13 @@ export class RbacService {
       },
       select: ROLE_SELECT,
     });
+    await this.audit.record({
+      actor,
+      action: 'role.created',
+      entityType: 'role',
+      entityId: role.id,
+      details: { name: role.name, permissions: [...dto.permissions].sort() },
+    });
     return toRoleResponse(role);
   }
 
@@ -126,6 +137,13 @@ export class RbacService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.description !== undefined) data.description = dto.description;
     await this.prisma.role.update({ where: { id }, data });
+    await this.audit.record({
+      actor,
+      action: 'role.updated',
+      entityType: 'role',
+      entityId: id,
+      details: { changedFields: Object.keys(data) },
+    });
     return this.getRole(id);
   }
 
@@ -159,6 +177,17 @@ export class RbacService {
         skipDuplicates: true,
       }),
     ]);
+    await this.audit.record({
+      actor,
+      action: 'role.permissions_changed',
+      entityType: 'role',
+      entityId: id,
+      details: {
+        role: role.name,
+        before: codesOf(role),
+        after: [...dto.permissions].sort(),
+      },
+    });
     return this.getRole(id);
   }
 
@@ -173,6 +202,13 @@ export class RbacService {
       );
     }
     await this.prisma.role.delete({ where: { id } });
+    await this.audit.record({
+      actor,
+      action: 'role.deleted',
+      entityType: 'role',
+      entityId: id,
+      details: { name: role.name, permissions: codesOf(role) },
+    });
   }
 
   private async requireRole(id: string): Promise<RoleRow> {

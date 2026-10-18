@@ -36,3 +36,15 @@ export function toPaginated<T>(items: T[], total: number, query: PaginationQuery
     totalPages: Math.ceil(total / query.pageSize),
   });
 }
+
+export interface CursorMeta {
+  limit: number;
+  nextCursor: string | null;
+}
+
+export class CursorPaginated<T> {
+  constructor(
+    public readonly items: T[],
+    public readonly meta: CursorMeta,
+  ) {}
+}

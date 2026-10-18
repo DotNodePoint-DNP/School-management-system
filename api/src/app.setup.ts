@@ -8,11 +8,13 @@ import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
 import cookieParser from 'cookie-parser';
+import { requestContextMiddleware } from './common/context/request-context.js';
 
 export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.use(helmet());
+    app.use(requestContextMiddleware);
   app.use(cookieParser());
   app.enableCors({
     origin: config

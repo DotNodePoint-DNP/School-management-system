@@ -27,6 +27,7 @@ import {
   toUserResponse,
   type UserResponse,
 } from './dto/user-response.dto.js';
+import { AuditService } from '../audit-logs/audit.service.js';
 
 const permissionCode = (p: {
   permission: { module: string; action: string };
@@ -34,7 +35,10 @@ const permissionCode = (p: {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async list(query: ListUsersQueryDto): Promise<Paginated<UserResponse>> {
     const where: Prisma.UserWhereInput = {};
@@ -103,6 +107,18 @@ export class UsersService {
       },
       select: USER_SELECT,
     });
+    await this.audit.record({
+      actor,
+      action: 'user.created',
+      entityType: 'user',
+      entityId: row.id,
+      details: {
+        fullName: row.fullName,
+        email: row.email,
+        phone: row.phone,
+        roleIds: dto.roleIds,
+      },
+    });
     return { user: toUserResponse(row), temporaryPassword };
   }
 
@@ -121,13 +137,19 @@ export class UsersService {
       if (!phone) throw new BadRequestException('Invalid phone number');
       data.phone = phone;
     }
-    return toUserResponse(
-      await this.prisma.user.update({
-        where: { id },
-        data,
-        select: USER_SELECT,
-      }),
-    );
+    const row = await this.prisma.user.update({
+      where: { id },
+      data,
+      select: USER_SELECT,
+    });
+    await this.audit.record({
+      actor,
+      action: 'user.updated',
+      entityType: 'user',
+      entityId: id,
+      details: { changedFields: Object.keys(data) },
+    });
+    return toUserResponse(row);
   }
 
   async setRoles(
@@ -175,6 +197,14 @@ export class UsersService {
         skipDuplicates: true,
       }),
     ]);
+
+    await this.audit.record({
+      actor,
+      action: 'user.roles_changed',
+      entityType: 'user',
+      entityId: id,
+      details: { before: [...currentIds].sort(), after: [...nextIds].sort() },
+    });
     return this.findOne(id);
   }
 
@@ -193,12 +223,24 @@ export class UsersService {
         data: { revokedAt: new Date() },
       }),
     ]);
+    await this.audit.record({
+      actor,
+      action: 'user.deactivated',
+      entityType: 'user',
+      entityId: id,
+    });
     return this.findOne(id);
   }
 
   async activate(id: string, actor: AuthUser): Promise<UserResponse> {
     await this.requireManageable(id, actor);
     await this.prisma.user.update({ where: { id }, data: { isActive: true } });
+    await this.audit.record({
+      actor,
+      action: 'user.activated',
+      entityType: 'user',
+      entityId: id,
+    });
     return this.findOne(id);
   }
 
@@ -226,6 +268,12 @@ export class UsersService {
         data: { revokedAt: new Date() },
       }),
     ]);
+    await this.audit.record({
+      actor,
+      action: 'user.password_reset',
+      entityType: 'user',
+      entityId: id,
+    });
     return { temporaryPassword };
   }
 

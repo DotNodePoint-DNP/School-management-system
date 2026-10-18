@@ -6,12 +6,17 @@ import {
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Paginated, type PageMeta } from '../dto/pagination.dto.js';
+import {
+  CursorPaginated,
+  Paginated,
+  type CursorMeta,
+  type PageMeta,
+} from '../dto/pagination.dto.js';
 
 interface Envelope {
   success: true;
   data: unknown;
-  meta?: PageMeta;
+  meta?: PageMeta | CursorMeta;
 }
 
 @Injectable()
@@ -24,7 +29,7 @@ export class ResponseInterceptor implements NestInterceptor<unknown, Envelope> {
       .handle()
       .pipe(
         map((data): Envelope =>
-          data instanceof Paginated
+          data instanceof Paginated || data instanceof CursorPaginated
             ? { success: true, data: data.items, meta: data.meta }
             : { success: true, data },
         ),

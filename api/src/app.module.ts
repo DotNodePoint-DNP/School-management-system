@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UsersModule } from './modules/users/users.module.js';
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
+    AuditLogsModule,
     HealthModule,
     AuthModule,
     UsersModule,
