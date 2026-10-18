@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
+import { AcademicYearsModule } from './modules/academic-years/academic-years.module.js';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
     AuthModule,
     UsersModule,
     RbacModule,
+    AcademicYearsModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'

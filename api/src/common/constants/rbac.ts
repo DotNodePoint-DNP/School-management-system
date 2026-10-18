@@ -21,5 +21,12 @@ export const PERMISSIONS = [
   'roles:read',
   'roles:manage',
   'audit-logs:read',
+  'academic-years:read',
+  'academic-years:manage',
+  'academic-years:adjust-dates',
+  'classes:read',
+  'classes:manage',
+  'subjects:read',
+  'subjects:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

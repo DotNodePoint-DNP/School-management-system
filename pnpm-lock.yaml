@@ -41,6 +41,9 @@ importers:
       '@prisma/client':
         specifier: ^7.10.0
         version: 7.10.0(prisma@7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.2.8(react@19.3.0))(react@19.3.0)(typescript@6.0.3))(typescript@6.0.3)
+      bikram-sambat-ts:
+        specifier: ^0.3.0
+        version: 0.3.0
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -2329,6 +2332,10 @@ packages:
 
   better-result@2.10.0:
     resolution: {integrity: sha512-oQhh0y1qo2/ZKdAAEvHZAqKKiHOFU5k/bW96fE2ScgQOVkJRiHwB+nOS1SgFsYqRlxMDWvefXi9Q3px7QvgNDw==}
+
+  bikram-sambat-ts@0.3.0:
+    resolution: {integrity: sha512-8yYYjipv9z53QY99a3G5QgzPUF63jAxkxQ7T7tswHPaH9gc8NQ0gqEe2V5Tame7mN0Whga4ETi4Tq60bgAr+TQ==}
+    engines: {node: '>=20'}
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -6822,6 +6829,8 @@ snapshots:
   baseline-browser-mapping@2.11.28: {}
 
   better-result@2.10.0: {}
+
+  bikram-sambat-ts@0.3.0: {}
 
   bl@4.1.0:
     dependencies:
