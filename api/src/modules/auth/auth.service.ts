@@ -18,6 +18,7 @@ import type {
 } from './auth.types.js';
 import type { ChangePasswordDto } from './dto/change-password.dto.js';
 import type { LoginDto } from './dto/login.dto.js';
+import { AuditService } from '../audit-logs/audit.service.js';
 
 // Two tabs may refresh at the same moment; only treat reuse as theft after this window.
 const REUSE_GRACE_MS = 10_000;
@@ -31,6 +32,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly audit: AuditService,
     config: ConfigService,
   ) {
     this.refreshTtlMs =
@@ -48,14 +50,27 @@ export class AuthService {
       : null;
 
     // Always run one hash verification so timing doesn't reveal whether the account exists.
-    console.log('Incoming password:', dto.password);
     const valid = await verifyPassword(
       user?.passwordHash ?? (await this.getDummyHash()),
       dto.password,
     );
-    console.log('user:', user, 'valid:', valid);
-    if (!user || !user.isActive || !valid)
+    if (!user || !user.isActive || !valid) {
+      await this.audit.record({
+        action: 'auth.login_failed',
+        details: {
+          // Only log what parsed as an email/phone, in case someone typed a password into this field.
+          identifier: identifier
+            ? Object.values(identifier)[0]
+            : '[unparseable]',
+          reason: !user
+            ? 'unknown_account'
+            : !user.isActive
+              ? 'inactive'
+              : 'bad_password',
+        },
+      });
       throw new UnauthorizedException('Invalid credentials');
+    }
 
     const authUser = await this.loadAuthUser(user.id);
     if (!authUser) throw new UnauthorizedException('Invalid credentials ');
@@ -65,6 +80,14 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
     const refresh = await this.createRefreshToken(user.id, randomUUID(), meta);
+
+    await this.audit.record({
+      actor: { id: authUser.id, fullName: authUser.fullName },
+      action: 'auth.login',
+      entityType: 'user',
+      entityId: authUser.id,
+    });
+
     return this.buildSession(authUser, refresh);
   }
 
@@ -85,6 +108,13 @@ export class AuthService {
     if (stored.revokedAt) {
       // A rotated token was presented again: treat as theft and end the whole login family.
       if (now.getTime() - stored.revokedAt.getTime() > REUSE_GRACE_MS) {
+        await this.audit.record({
+          actor: { id: stored.userId },
+          action: 'auth.refresh_reuse_detected',
+          entityType: 'user',
+          entityId: stored.userId,
+          details: { familyId: stored.familyId },
+        });
         await this.revokeFamily(stored.familyId);
       }
       throw invalid();
@@ -117,7 +147,16 @@ export class AuthService {
     const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: sha256(rawToken) },
     });
-    if (stored) await this.revokeFamily(stored.familyId);
+
+    if (stored) {
+      await this.revokeFamily(stored.familyId);
+      await this.audit.record({
+        actor: { id: stored.userId },
+        action: 'auth.logout',
+        entityType: 'user',
+        entityId: stored.userId,
+      });
+    }
   }
 
   async authenticate(accessToken: string): Promise<AuthUser> {
@@ -161,6 +200,13 @@ export class AuthService {
         data: { revokedAt: new Date() },
       }),
     ]);
+// audit log for password change
+    await this.audit.record({
+      actor: { id: userId },
+      action: 'auth.password_changed',
+      entityType: 'user',
+      entityId: userId,
+    });
   }
 
   private getDummyHash(): Promise<string> {
