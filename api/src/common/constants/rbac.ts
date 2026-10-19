@@ -28,5 +28,10 @@ export const PERMISSIONS = [
   'classes:manage',
   'subjects:read',
   'subjects:manage',
+  'staff:read',
+  'staff:manage',
+  'staff:create-login',
+  'teaching:read',
+  'teaching:assign',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

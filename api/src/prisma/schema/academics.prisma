@@ -13,8 +13,10 @@ model AcademicYear {
     createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    terms         Term[]
-    classSubjects ClassSubject[]
+    terms                   Term[]
+    classSubjects           ClassSubject[]
+    classTeacherAssignments ClassTeacherAssignment[]
+    teachingAssignments     TeachingAssignment[]
 
     @@map("academic_years")
 }
@@ -62,6 +64,10 @@ model Section {
 
     schoolClass SchoolClass @relation(fields: [classId], references: [id], onDelete: Restrict)
 
+    classTeacherAssignments ClassTeacherAssignment[]
+    teachingAssignments     TeachingAssignment[]
+
+    @@unique([id, classId])
     @@unique([classId, name])
     @@map("sections")
 }
@@ -92,5 +98,6 @@ model ClassSubject {
     @@id([academicYearId, classId, subjectId])
     @@index([classId])
     @@index([subjectId])
+    teachingAssignments TeachingAssignment[]
     @@map("class_subjects")
 }

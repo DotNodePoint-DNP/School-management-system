@@ -1,0 +1,48 @@
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator.js';
+import {
+  GENDERS,
+  STAFF_KINDS,
+  type GenderValue,
+  type StaffKindValue,
+} from '../../../common/constants/people.js';
+import { DATE_SHAPE } from '../../../common/dto/date-range-input.dto.js';
+
+export class CreateStaffDto {
+  @Trim() @IsString() @MinLength(1) @MaxLength(60) firstName!: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(60) middleName?: string;
+  @Trim() @IsString() @MinLength(1) @MaxLength(60) lastName!: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(150) fullNameNp?: string;
+  @IsIn(GENDERS) gender!: GenderValue;
+  @IsOptional()
+  @Matches(DATE_SHAPE, { message: 'dateOfBirth must be YYYY-MM-DD' })
+  dateOfBirth?: string;
+  @IsOptional()
+  @Matches(DATE_SHAPE, { message: 'dateOfBirthBs must be YYYY-MM-DD' })
+  dateOfBirthBs?: string;
+  @IsOptional()
+  @Matches(DATE_SHAPE, { message: 'joinDate must be YYYY-MM-DD' })
+  joinDate?: string;
+  @IsOptional()
+  @Matches(DATE_SHAPE, { message: 'joinDateBs must be YYYY-MM-DD' })
+  joinDateBs?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(20) phone?: string;
+  @IsOptional() @Trim() @IsEmail() @MaxLength(254) email?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(255) address?: string;
+  @IsIn(STAFF_KINDS) kind!: StaffKindValue;
+  @IsOptional() @Trim() @IsString() @MaxLength(80) designation?: string;
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9][A-Za-z0-9/_-]{0,29}$/, {
+    message: 'staffNo has invalid characters',
+  })
+  staffNo?: string;
+}
