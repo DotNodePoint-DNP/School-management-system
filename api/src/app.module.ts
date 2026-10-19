@@ -13,6 +13,8 @@ import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module.js';
+import { ClassesModule } from './modules/classes/classes.module.js';
+import { SubjectsModule } from './modules/subjects/subjects.module.js';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AcademicYearsModule } from './modules/academic-years/academic-years.mod
     UsersModule,
     RbacModule,
     AcademicYearsModule,
+    ClassesModule,
+    SubjectsModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'
