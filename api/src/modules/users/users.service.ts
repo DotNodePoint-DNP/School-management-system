@@ -14,6 +14,7 @@ import { normalizePhone } from '../../common/utils/identifier.js';
 import {
   generateTemporaryPassword,
   hashPassword,
+  temporaryCredentialExpiry,
 } from '../../common/utils/password.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -102,6 +103,7 @@ export class UsersService {
         email,
         phone: phone ?? undefined,
         passwordHash: await hashPassword(temporaryPassword),
+        credentialsExpireAt: temporaryCredentialExpiry(),
         mustChangePassword: true,
         roles: { create: dto.roleIds.map((roleId) => ({ roleId })) },
       },
@@ -261,6 +263,7 @@ export class UsersService {
         data: {
           passwordHash: await hashPassword(temporaryPassword),
           mustChangePassword: true,
+          credentialsExpireAt: temporaryCredentialExpiry(),
         },
       }),
       this.prisma.refreshToken.updateMany({

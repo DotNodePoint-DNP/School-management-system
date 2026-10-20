@@ -7,6 +7,9 @@
 # TypeScript build cache
 *.tsbuildinfo
 
+
+postman.md
+
 # Logs
 logs
 *.log

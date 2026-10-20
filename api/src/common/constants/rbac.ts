@@ -7,6 +7,7 @@ export const SYSTEM_ROLES = [
 export type SystemRole = (typeof SYSTEM_ROLES)[number];
 
 export const ADMIN_ROLE: SystemRole = 'ADMIN';
+export const PARENT_ROLE: SystemRole = 'PARENT';
 
 // format : "<modules>:<action>". Each new modules add its permissions here
 
@@ -33,5 +34,15 @@ export const PERMISSIONS = [
   'staff:create-login',
   'teaching:read',
   'teaching:assign',
+
+  'students:read',
+  'students:read-all',
+  'students:create',
+  'students:update',
+  'students:delete',
+  'students:set-admission-no',
+  'guardians:read',
+  'guardians:manage',
+  'guardians:create-login',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

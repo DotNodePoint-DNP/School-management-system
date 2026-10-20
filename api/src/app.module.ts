@@ -16,6 +16,9 @@ import { AcademicYearsModule } from './modules/academic-years/academic-years.mod
 import { ClassesModule } from './modules/classes/classes.module.js';
 import { SubjectsModule } from './modules/subjects/subjects.module.js';
 import { StaffModule } from './modules/staff/staff.module.js';
+import { MessagingModule } from './infra/messaging/messaging.module.js';
+import { GuardiansModule } from './modules/guardians/guardians.module.js';
+import { StudentsModule } from './modules/students/students.module.js';
 
 @Module({
   imports: [
@@ -35,6 +38,9 @@ import { StaffModule } from './modules/staff/staff.module.js';
     ClassesModule,
     SubjectsModule,
     StaffModule,
+    MessagingModule,
+    GuardiansModule,
+    StudentsModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'

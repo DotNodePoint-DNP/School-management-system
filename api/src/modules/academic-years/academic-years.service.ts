@@ -364,14 +364,15 @@ export class AcademicYearsService {
         throw new ConflictException(
           'Only a planned academic year can be deleted',
         );
-      const [terms, curriculum, classTeachers] = await Promise.all([
+      const [terms, curriculum, classTeachers, enrolments] = await Promise.all([
         tx.term.count({ where: { academicYearId: id } }),
         tx.classSubject.count({ where: { academicYearId: id } }),
         tx.classTeacherAssignment.count({ where: { academicYearId: id } }),
+        tx.enrollment.count({ where: { academicYearId: id } }),
       ]);
-      if (terms > 0 || curriculum > 0 || classTeachers > 0) {
+      if (terms + curriculum + classTeachers + enrolments > 0) {
         throw new ConflictException(
-          "Remove this academic year's terms, curriculum and teacher assignments first",
+          "Remove this academic year's terms, curriculum, teacher assignments and enrollments first",
         );
       }
       await tx.academicYear.delete({ where: { id } });

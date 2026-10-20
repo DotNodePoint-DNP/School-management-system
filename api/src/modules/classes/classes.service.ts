@@ -184,15 +184,25 @@ export class ClassesService {
     actor: AuthUser,
   ): Promise<SectionResponse> {
     const { section, changed } = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.section.findFirst({
-        where: { id: sectionId, classId },
-        select: { isActive: true },
-      });
+      // Row lock: enrollment takes the same lock, so capacity checks cannot race with admissions.
+      const locked = await tx.$queryRaw<{ id: string; isActive: boolean }[]>`
+        SELECT id, is_active AS "isActive" FROM sections
+        WHERE id = ${sectionId}::uuid AND class_id = ${classId}::uuid FOR UPDATE`;
+      const current = locked[0];
       if (!current) throw new NotFoundException('Section not found');
 
-      // Reactivating depends on the class being active.
       if (dto.isActive === true && !current.isActive)
         await this.lockActiveClassForUse(tx, classId);
+      if (dto.isActive === false && current.isActive)
+        await this.assertNoEnrolledStudents(tx, sectionId);
+      if (dto.capacity !== undefined && dto.capacity !== null) {
+        const peak = await this.peakEnrolment(tx, sectionId);
+        if (dto.capacity < peak) {
+          throw new ConflictException(
+            `This section already has ${peak} enrolled student(s); capacity cannot be below that`,
+          );
+        }
+      }
       if (dto.name !== undefined)
         await this.assertSectionNameFree(tx, classId, dto.name, sectionId);
 
@@ -228,6 +238,16 @@ export class ClassesService {
       select: { name: true },
     });
     if (!section) throw new NotFoundException('Section not found');
+    const [enrolments, classTeachers, teachers] = await Promise.all([
+      this.prisma.enrollment.count({ where: { sectionId } }),
+      this.prisma.classTeacherAssignment.count({ where: { sectionId } }),
+      this.prisma.teachingAssignment.count({ where: { sectionId } }),
+    ]);
+    if (enrolments + classTeachers + teachers > 0) {
+      throw new ConflictException(
+        'This section has enrollment or teaching history. Deactivate it instead of deleting it.',
+      );
+    }
     await this.prisma.section.delete({ where: { id: sectionId } });
     await this.audit.record({
       actor,
@@ -236,6 +256,31 @@ export class ClassesService {
       entityId: sectionId,
       details: { classId, name: section.name },
     });
+  }
+
+  private async assertNoEnrolledStudents(
+    tx: Tx,
+    sectionId: string,
+  ): Promise<void> {
+    const peak = await this.peakEnrolment(tx, sectionId);
+    if (peak > 0)
+      throw new ConflictException(
+        `This section still has ${peak} enrolled student(s). Move or withdraw them first.`,
+      );
+  }
+
+  /** The most students enrolled in this section in any open academic year. */
+  private async peakEnrolment(tx: Tx, sectionId: string): Promise<number> {
+    const groups = await tx.enrollment.groupBy({
+      by: ['academicYearId'],
+      where: {
+        sectionId,
+        status: 'ENROLLED',
+        academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
+      },
+      _count: { _all: true },
+    });
+    return Math.max(0, ...groups.map((g) => g._count._all));
   }
 
   /**
