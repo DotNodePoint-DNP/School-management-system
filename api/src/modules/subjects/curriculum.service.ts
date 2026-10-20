@@ -125,6 +125,18 @@ export class CurriculumService {
       );
 
       if (toDelete.length > 0) {
+        const assigned = await tx.teachingAssignment.count({
+          where: {
+            academicYearId: yearId,
+            classId,
+            subjectId: { in: toDelete },
+          },
+        });
+        if (assigned > 0) {
+          throw new ConflictException(
+            `${assigned} teacher assignment(s) use the subjects being removed. Remove those assignments first.`,
+          );
+        }
         await tx.classSubject.deleteMany({
           where: {
             academicYearId: yearId,

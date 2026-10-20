@@ -12,6 +12,7 @@ model User {
 
     roles         UserRole[]
     refreshTokens RefreshToken[]
+    staff         Staff?
 
     @@map("users")
 }

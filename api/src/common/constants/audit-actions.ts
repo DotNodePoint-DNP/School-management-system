@@ -15,7 +15,7 @@ export const AUDIT_ACTIONS = [
   'role.updated',
   'role.permissions_changed',
   'role.deleted',
-//   acatemic-year
+  //   acatemic-year
   'academic-year.created',
   'academic-year.updated',
   'academic-year.activated',
@@ -36,5 +36,14 @@ export const AUDIT_ACTIONS = [
   'subject.deleted',
   'curriculum.updated',
   'curriculum.copied',
+  // staff
+  'staff.created',
+  'staff.updated',
+  'staff.left',
+  'staff.reactivated',
+  'staff.login_created',
+  'staff.deleted',
+  'teaching.class_teacher_set',
+  'teaching.subject_teacher_set',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

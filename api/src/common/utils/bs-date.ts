@@ -129,3 +129,8 @@ export function requireDate(label: string, ad?: string, bs?: string): string {
     );
   return value;
 }
+
+/** Today's date in Nepal (fixed UTC+05:45) as YYYY-MM-DD. */
+export function todayIso(): string {
+  return new Date(Date.now() + 345 * 60_000).toISOString().slice(0, 10);
+}

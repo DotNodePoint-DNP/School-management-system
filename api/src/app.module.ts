@@ -15,6 +15,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module.js';
 import { ClassesModule } from './modules/classes/classes.module.js';
 import { SubjectsModule } from './modules/subjects/subjects.module.js';
+import { StaffModule } from './modules/staff/staff.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SubjectsModule } from './modules/subjects/subjects.module.js';
     AcademicYearsModule,
     ClassesModule,
     SubjectsModule,
+    StaffModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'
