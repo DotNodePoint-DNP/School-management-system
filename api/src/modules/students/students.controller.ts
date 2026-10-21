@@ -25,10 +25,18 @@ import {
   type StudentDetail,
   type StudentListItem,
 } from './students.service.js';
+import {
+  StatusChangeResult,
+  StudentLifecycleService,
+} from './student-lifecycle.service.js';
+import { ChangeStudentStatusDto } from './dto/change-student-status.dto.js';
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly students: StudentsService) {}
+  constructor(
+    private readonly students: StudentsService,
+    private readonly lifecycle: StudentLifecycleService,
+  ) {}
 
   @Get()
   list(
@@ -84,5 +92,26 @@ export class StudentsController {
   ): Promise<{ deleted: true }> {
     await this.students.remove(id, actor);
     return { deleted: true };
+  }
+
+  @Post(':id/status')
+  @HttpCode(200)
+  @RequirePermissions('students:change-status')
+  changeStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangeStudentStatusDto,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<StatusChangeResult> {
+    return this.lifecycle.changeStatus(id, dto, actor);
+  }
+
+  @Post(':id/reactivate')
+  @HttpCode(200)
+  @RequirePermissions('students:change-status')
+  reactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<StatusChangeResult> {
+    return this.lifecycle.reactivate(id, actor);
   }
 }

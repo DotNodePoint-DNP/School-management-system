@@ -44,5 +44,9 @@ export const PERMISSIONS = [
   'guardians:read',
   'guardians:manage',
   'guardians:create-login',
+
+  'enrollments:read',
+  'enrollments:manage',
+  'students:change-status',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

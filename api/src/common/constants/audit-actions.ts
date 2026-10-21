@@ -53,5 +53,12 @@ export const AUDIT_ACTIONS = [
   'guardian.updated',
   'guardian.login_created',
   'guardian.credentials_resent',
+
+  'enrollment.created',
+  'enrollment.moved',
+  'enrollment.roll_assigned',
+  'enrollment.deleted',
+  'student.status_changed',
+  'student.reactivated',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

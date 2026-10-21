@@ -36,6 +36,10 @@ import type { ListStudentsQueryDto } from './dto/list-students-query.dto.js';
 import type { ReplaceStudentGuardiansDto } from './dto/replace-student-guardians.dto.js';
 import type { UpdateStudentDto } from './dto/update-student.dto.js';
 import { StudentAccessService } from './student-access.service.js';
+import {
+  EnrollmentsService,
+  type EnrollmentRow,
+} from './enrollments.service.js';
 
 type Tx = Prisma.TransactionClient;
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
@@ -226,6 +230,7 @@ export class StudentsService {
     private readonly audit: AuditService,
     private readonly access: StudentAccessService,
     private readonly accounts: ParentAccountsService,
+    private readonly enrollments: EnrollmentsService,
   ) {}
 
   async list(
@@ -318,13 +323,21 @@ export class StudentsService {
         'You do not have permission to enter an admission number manually',
       );
     }
+    if (dto.placement && !actor.permissions.includes('enrollments:manage')) {
+      throw new ForbiddenException(
+        'You do not have permission to place students in a class',
+      );
+    }
+    const placementYearId = dto.placement
+      ? await this.enrollments.resolveYearId(dto.placement.academicYearId)
+      : null;
     const bsYear = Number(adToBsString(admissionDate)?.slice(0, 4));
     if (!bsYear)
       throw new BadRequestException(
         'The admission date is outside the supported Bikram Sambat range',
       );
     const prepared = this.prepareGuardians(dto.guardians);
-
+    let placed: EnrollmentRow | null = null;
     const { studentId, links } = await this.prisma.$transaction(async (tx) => {
       if (!dto.confirmNotDuplicate)
         await this.assertNoDuplicate(tx, dto.firstName, dto.lastName, dob);
@@ -353,6 +366,14 @@ export class StudentsService {
         },
         select: { id: true },
       });
+      if (dto.placement && placementYearId) {
+        placed = await this.enrollments.enrollInTx(tx, {
+          studentId: student.id,
+          academicYearId: placementYearId,
+          sectionId: dto.placement.sectionId,
+          rollNo: dto.placement.rollNo,
+        });
+      }
       return { studentId: student.id, links: resolved };
     }, TX);
 
@@ -371,7 +392,7 @@ export class StudentsService {
         guardianCount: links.length,
       },
     });
-
+    if (placed) await this.enrollments.recordCreated(placed, actor);
     // Accounts are created after the student is saved, so a failed SMS never undoes an admission.
     const childName = displayName(dto);
     const logins: LoginOutcome[] = [];

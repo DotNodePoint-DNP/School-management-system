@@ -16,6 +16,7 @@ import { Trim } from '../../../common/decorators/trim.decorator.js';
 import { GENDERS, type GenderValue } from '../../../common/constants/people.js';
 import { DATE_SHAPE } from '../../../common/dto/date-range-input.dto.js';
 import { GuardianInputDto } from './guardian-input.dto.js';
+import { PlacementDto } from './enrollment.dto.js';
 
 export class CreateStudentDto {
   @Trim() @IsString() @MinLength(1) @MaxLength(60) firstName!: string;
@@ -51,4 +52,9 @@ export class CreateStudentDto {
   @ValidateNested({ each: true })
   @Type(() => GuardianInputDto)
   guardians!: GuardianInputDto[];
+  /** Optional initial class placement; the admission and the seat succeed or fail together. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PlacementDto)
+  placement?: PlacementDto;
 }

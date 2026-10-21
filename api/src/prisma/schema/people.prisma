@@ -110,15 +110,15 @@ enum StudentDocumentType {
 }
 
 model Student {
-  id              String        @id @default(uuid(7)) @db.Uuid
-  admissionNo     String        @unique @map("admission_no")
-  firstName       String        @map("first_name")
-  middleName      String?       @map("middle_name")
-  lastName        String        @map("last_name")
-  fullNameNp      String?       @map("full_name_np")
-  gender          Gender
-  dateOfBirth     DateTime      @map("date_of_birth") @db.Date
-  admissionDate   DateTime      @map("admission_date") @db.Date
+  id            String   @id @default(uuid(7)) @db.Uuid
+  admissionNo   String   @unique @map("admission_no")
+  firstName     String   @map("first_name")
+  middleName    String?  @map("middle_name")
+  lastName      String   @map("last_name")
+  fullNameNp    String?  @map("full_name_np")
+  gender        Gender
+  dateOfBirth   DateTime @map("date_of_birth") @db.Date
+  admissionDate DateTime @map("admission_date") @db.Date
 
   // photoUrl        String?       @map("photo_url")
 
@@ -129,9 +129,9 @@ model Student {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardians       StudentGuardian[]
-  enrollments     Enrollment[]
-  documents       StudentDocument[]
+  guardians   StudentGuardian[]
+  enrollments Enrollment[]
+  documents   StudentDocument[]
 
   @@index([lastName, firstName])
   @@index([dateOfBirth])
@@ -212,7 +212,7 @@ model Enrollment {
   section      Section      @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
 
   @@unique([studentId, academicYearId])
-  @@unique([academicYearId, sectionId, rollNo])
+  @@index([academicYearId, sectionId])
   @@index([sectionId, status])
   @@index([classId])
   @@map("enrollments")
