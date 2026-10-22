@@ -14,5 +14,14 @@ export function verifyPassword(hash: string, plain: string): Promise<boolean> {
 }
 
 export function generateTemporaryPassword(length = 14): string {
-  return Array.from({ length }, () => TEMP_ALPHABET[randomInt(TEMP_ALPHABET.length)]).join('');
+  return Array.from(
+    { length },
+    () => TEMP_ALPHABET[randomInt(TEMP_ALPHABET.length)],
+  ).join('');
 }
+
+const TEMP_CREDENTIAL_DAYS = 7;
+
+/** When a temporary password stops working. */
+export const temporaryCredentialExpiry = (): Date =>
+  new Date(Date.now() + TEMP_CREDENTIAL_DAYS * 86_400_000);

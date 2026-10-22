@@ -17,6 +17,7 @@ model AcademicYear {
     classSubjects           ClassSubject[]
     classTeacherAssignments ClassTeacherAssignment[]
     teachingAssignments     TeachingAssignment[]
+    enrollments             Enrollment[]
 
     @@map("academic_years")
 }
@@ -66,6 +67,7 @@ model Section {
 
     classTeacherAssignments ClassTeacherAssignment[]
     teachingAssignments     TeachingAssignment[]
+    enrollments             Enrollment[]
 
     @@unique([id, classId])
     @@unique([classId, name])
@@ -91,13 +93,14 @@ model ClassSubject {
     subjectId      String  @map("subject_id") @db.Uuid
     isCompulsory   Boolean @default(true) @map("is_compulsory")
 
-    academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-    schoolClass  SchoolClass  @relation(fields: [classId], references: [id], onDelete: Restrict)
-    subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+    academicYear        AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    schoolClass         SchoolClass          @relation(fields: [classId], references: [id], onDelete: Restrict)
+    subject             Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+    teachingAssignments TeachingAssignment[]
+    studentChoices StudentSubjectChoice[]
 
     @@id([academicYearId, classId, subjectId])
     @@index([classId])
     @@index([subjectId])
-    teachingAssignments TeachingAssignment[]
     @@map("class_subjects")
 }
