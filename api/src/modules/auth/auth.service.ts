@@ -45,7 +45,12 @@ export class AuthService {
     const user = identifier
       ? await this.prisma.user.findUnique({
           where: identifier,
-          select: { id: true, passwordHash: true, isActive: true },
+          select: {
+            id: true,
+            passwordHash: true,
+            isActive: true,
+            credentialsExpireAt: true,
+          },
         })
       : null;
 
@@ -70,6 +75,21 @@ export class AuthService {
         },
       });
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (user.credentialsExpireAt && user.credentialsExpireAt < new Date()) {
+      await this.audit.record({
+        action: 'auth.login_failed',
+        details: {
+          reason: 'credentials_expired',
+          identifier: identifier
+            ? Object.values(identifier)[0]
+            : '[unparseable]',
+        },
+      });
+      // Only reachable with the correct password, so this reveals nothing to a guesser.
+      throw new UnauthorizedException(
+        'Your temporary password has expired. Please ask the school to send a new one.',
+      );
     }
 
     const authUser = await this.loadAuthUser(user.id);
@@ -192,7 +212,7 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
-        data: { passwordHash, mustChangePassword: false },
+        data: { passwordHash, mustChangePassword: false , credentialsExpireAt: null},
       }),
       // Every device must sign in again with the new password.
       this.prisma.refreshToken.updateMany({
@@ -200,7 +220,7 @@ export class AuthService {
         data: { revokedAt: new Date() },
       }),
     ]);
-// audit log for password change
+    // audit log for password change
     await this.audit.record({
       actor: { id: userId },
       action: 'auth.password_changed',

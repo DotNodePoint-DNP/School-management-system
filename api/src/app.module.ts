@@ -12,6 +12,13 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
+import { AcademicYearsModule } from './modules/academic-years/academic-years.module.js';
+import { ClassesModule } from './modules/classes/classes.module.js';
+import { SubjectsModule } from './modules/subjects/subjects.module.js';
+import { StaffModule } from './modules/staff/staff.module.js';
+import { MessagingModule } from './infra/messaging/messaging.module.js';
+import { GuardiansModule } from './modules/guardians/guardians.module.js';
+import { StudentsModule } from './modules/students/students.module.js';
 
 @Module({
   imports: [
@@ -27,6 +34,13 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module.js';
     AuthModule,
     UsersModule,
     RbacModule,
+    AcademicYearsModule,
+    ClassesModule,
+    SubjectsModule,
+    StaffModule,
+    MessagingModule,
+    GuardiansModule,
+    StudentsModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'

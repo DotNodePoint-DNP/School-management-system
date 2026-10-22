@@ -1,0 +1,238 @@
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum StaffKind {
+  TEACHING
+  NON_TEACHING
+}
+
+enum StaffStatus {
+  ACTIVE
+  LEFT
+}
+
+model Sequence {
+  name  String @id
+  value Int
+
+  @@map("sequences")
+}
+
+model Staff {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  staffNo     String      @unique @map("staff_no")
+  firstName   String      @map("first_name")
+  middleName  String?     @map("middle_name")
+  lastName    String      @map("last_name")
+  fullNameNp  String?     @map("full_name_np")
+  gender      Gender
+  dateOfBirth DateTime?   @map("date_of_birth") @db.Date
+  phone       String?
+  email       String?
+  address     String?
+  kind        StaffKind
+  designation String?
+  joinDate    DateTime    @map("join_date") @db.Date
+  status      StaffStatus @default(ACTIVE)
+  leftOn      DateTime?   @map("left_on") @db.Date
+  statusNote  String?     @map("status_note")
+  userId      String?     @unique @map("user_id") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                    User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  classTeacherAssignments ClassTeacherAssignment[]
+  teachingAssignments     TeachingAssignment[]
+
+  @@index([lastName, firstName])
+  @@index([status, kind])
+  @@map("staff")
+}
+
+model ClassTeacherAssignment {
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  sectionId      String   @map("section_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  section      Section      @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@id([academicYearId, sectionId])
+  @@index([staffId])
+  @@map("class_teacher_assignments")
+}
+
+model TeachingAssignment {
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  sectionId      String   @map("section_id") @db.Uuid
+  classId        String   @map("class_id") @db.Uuid
+  subjectId      String   @map("subject_id") @db.Uuid
+  staffId        String   @map("staff_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  // The database guarantees the section belongs to the class, and that the class studies this subject that year.
+  section      Section      @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  classSubject ClassSubject @relation(fields: [academicYearId, classId, subjectId], references: [academicYearId, classId, subjectId], onDelete: Restrict)
+  staff        Staff        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@id([academicYearId, sectionId, subjectId])
+  @@index([staffId])
+  @@map("teaching_assignments")
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED
+  WITHDRAWN
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  WITHDRAWN
+  COMPLETED
+}
+
+enum StudentDocumentType {
+  PROFILE_PHOTO
+  BIRTH_CERTIFICATE
+  TRANSFER_CERTIFICATE
+  PREVIOUS_MARKSHEET
+  OTHER
+}
+
+model Student {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  admissionNo   String   @unique @map("admission_no")
+  firstName     String   @map("first_name")
+  middleName    String?  @map("middle_name")
+  lastName      String   @map("last_name")
+  fullNameNp    String?  @map("full_name_np")
+  gender        Gender
+  dateOfBirth   DateTime @map("date_of_birth") @db.Date
+  admissionDate DateTime @map("admission_date") @db.Date
+
+  // photoUrl        String?       @map("photo_url")
+
+  address         String?
+  status          StudentStatus @default(ACTIVE)
+  statusChangedOn DateTime?     @map("status_changed_on") @db.Date
+  statusNote      String?       @map("status_note")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  guardians   StudentGuardian[]
+  enrollments Enrollment[]
+  documents   StudentDocument[]
+
+  @@index([lastName, firstName])
+  @@index([dateOfBirth])
+  @@index([status])
+  @@map("students")
+}
+
+model Guardian {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  firstName  String   @map("first_name")
+  middleName String?  @map("middle_name")
+  lastName   String?  @map("last_name")
+  fullNameNp String?  @map("full_name_np")
+  phone      String?
+  email      String?
+  occupation String?
+  address    String?
+  userId     String?  @unique @map("user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  students StudentGuardian[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([lastName, firstName])
+  @@map("guardians")
+}
+
+model StudentGuardian {
+  studentId          String  @map("student_id") @db.Uuid
+  guardianId         String  @map("guardian_id") @db.Uuid
+  relationship       String
+  isPrimary          Boolean @default(false) @map("is_primary")
+  isEmergencyContact Boolean @default(false) @map("is_emergency_contact")
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+
+  @@id([studentId, guardianId])
+  @@index([guardianId])
+  @@map("student_guardians")
+}
+
+model StudentDocument {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  studentId    String              @map("student_id") @db.Uuid
+  type         StudentDocumentType
+  storageKey   String              @map("storage_key")
+  originalName String              @map("original_name")
+  mimeType     String              @map("mime_type")
+  sizeBytes    BigInt              @map("size_bytes")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, type])
+  @@map("student_documents")
+}
+
+model Enrollment {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  academicYearId  String           @map("academic_year_id") @db.Uuid
+  classId         String           @map("class_id") @db.Uuid
+  sectionId       String           @map("section_id") @db.Uuid
+  rollNo          Int?             @map("roll_no")
+  status          EnrollmentStatus @default(ENROLLED)
+  statusChangedOn DateTime?        @map("status_changed_on") @db.Date
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  student        Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  // The database guarantees the section belongs to the class.
+  section        Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  subjectChoices StudentSubjectChoice[]
+
+  @@unique([id, academicYearId, classId])
+  @@unique([studentId, academicYearId])
+  @@index([academicYearId, sectionId])
+  @@index([sectionId, status])
+  @@index([classId])
+  @@map("enrollments")
+}
+
+model StudentSubjectChoice {
+  enrollmentId   String   @map("enrollment_id") @db.Uuid
+  subjectId      String   @map("subject_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  classId        String   @map("class_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Both foreign keys together guarantee: the enrollment is in this year and class,
+  // and this class studies this subject in this year.
+  enrollment   Enrollment   @relation(fields: [enrollmentId, academicYearId, classId], references: [id, academicYearId, classId], onDelete: Cascade)
+  classSubject ClassSubject @relation(fields: [academicYearId, classId, subjectId], references: [academicYearId, classId, subjectId], onDelete: Restrict)
+
+  @@id([enrollmentId, subjectId])
+  @@index([academicYearId, classId, subjectId])
+  @@map("student_subject_choices")
+}

@@ -10,8 +10,11 @@ model User {
     createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    roles         UserRole[]
-    refreshTokens RefreshToken[]
+    roles               UserRole[]
+    refreshTokens       RefreshToken[]
+    staff               Staff?
+    credentialsExpireAt DateTime?      @map("credentials_expire_at") @db.Timestamptz(6)
+    guardian            Guardian?
 
     @@map("users")
 }
