@@ -97,6 +97,7 @@ model ClassSubject {
     schoolClass         SchoolClass          @relation(fields: [classId], references: [id], onDelete: Restrict)
     subject             Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
     teachingAssignments TeachingAssignment[]
+    studentChoices StudentSubjectChoice[]
 
     @@id([academicYearId, classId, subjectId])
     @@index([classId])

@@ -183,7 +183,7 @@ export class EnrollmentsService {
           academicYearId: p.academicYearId,
         },
       },
-      select: { id: true, status: true },
+      select: { id: true, status: true, classId: true },
     });
     if (existing?.status === 'ENROLLED')
       throw new ConflictException(
@@ -205,6 +205,14 @@ export class EnrollmentsService {
       status: 'ENROLLED' as const,
       statusChangedOn: null,
     };
+
+    // Choices belong to the old class; they cannot survive a change of class.
+    if (existing && existing.classId !== section.classId) {
+      await tx.studentSubjectChoice.deleteMany({
+        where: { enrollmentId: existing.id },
+      });
+    }
+
     // A student who left and came back reuses their row for that year instead of creating a duplicate.
     return existing
       ? tx.enrollment.update({
@@ -458,12 +466,21 @@ export class EnrollmentsService {
     });
   }
 
-  /** Admin roles see every section; teachers see only the sections they are assigned to. */
   async listSection(
     yearId: string,
     sectionId: string,
     actor: AuthUser,
   ): Promise<RollListItem[]> {
+    await this.assertSectionAccess(yearId, sectionId, actor);
+    return this.rollList(yearId, sectionId);
+  }
+
+  /** Admin roles see every section; teachers only the sections they are assigned to. Throws otherwise. */
+  async assertSectionAccess(
+    yearId: string,
+    sectionId: string,
+    actor: AuthUser,
+  ): Promise<void> {
     const [year, section] = await Promise.all([
       this.prisma.academicYear.findUnique({
         where: { id: yearId },
@@ -480,19 +497,16 @@ export class EnrollmentsService {
     const privileged =
       actor.permissions.includes('enrollments:read') ||
       actor.permissions.includes('students:read-all');
-    if (!privileged) {
-      const scope = await this.access.scopeFor(actor);
-      if (
-        scope.kind !== 'sections' ||
-        scope.academicYearId !== yearId ||
-        !scope.sectionIds.includes(sectionId)
-      ) {
-        throw new ForbiddenException('You do not have access to this section');
-      }
+    if (privileged) return;
+    const scope = await this.access.scopeFor(actor);
+    if (
+      scope.kind !== 'sections' ||
+      scope.academicYearId !== yearId ||
+      !scope.sectionIds.includes(sectionId)
+    ) {
+      throw new ForbiddenException('You do not have access to this section');
     }
-    return this.rollList(yearId, sectionId);
   }
-
   async occupancy(yearId: string): Promise<OccupancyItem[]> {
     const year = await this.prisma.academicYear.findUnique({
       where: { id: yearId },

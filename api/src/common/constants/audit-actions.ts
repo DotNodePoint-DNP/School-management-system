@@ -60,5 +60,6 @@ export const AUDIT_ACTIONS = [
   'enrollment.deleted',
   'student.status_changed',
   'student.reactivated',
+  'enrollment.subject_choices_set'
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

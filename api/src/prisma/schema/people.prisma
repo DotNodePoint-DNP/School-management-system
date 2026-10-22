@@ -206,14 +206,33 @@ model Enrollment {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  student      Student      @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student        Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear   AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
   // The database guarantees the section belongs to the class.
-  section      Section      @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  section        Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  subjectChoices StudentSubjectChoice[]
 
+  @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])
   @@index([academicYearId, sectionId])
   @@index([sectionId, status])
   @@index([classId])
   @@map("enrollments")
+}
+
+model StudentSubjectChoice {
+  enrollmentId   String   @map("enrollment_id") @db.Uuid
+  subjectId      String   @map("subject_id") @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  classId        String   @map("class_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Both foreign keys together guarantee: the enrollment is in this year and class,
+  // and this class studies this subject in this year.
+  enrollment   Enrollment   @relation(fields: [enrollmentId, academicYearId, classId], references: [id, academicYearId, classId], onDelete: Cascade)
+  classSubject ClassSubject @relation(fields: [academicYearId, classId, subjectId], references: [academicYearId, classId, subjectId], onDelete: Restrict)
+
+  @@id([enrollmentId, subjectId])
+  @@index([academicYearId, classId, subjectId])
+  @@map("student_subject_choices")
 }

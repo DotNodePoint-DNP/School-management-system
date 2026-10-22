@@ -124,6 +124,26 @@ export class CurriculumService {
         ([id, compulsory]) => current.has(id) && current.get(id) !== compulsory,
       );
 
+      // Students' optional-subject choices must not be orphaned or invalidated.
+      const becomingCompulsory = toUpdate
+        .filter(([, compulsory]) => compulsory)
+        .map(([id]) => id);
+      const guarded = [...toDelete, ...becomingCompulsory];
+      if (guarded.length > 0) {
+        const chosen = await tx.studentSubjectChoice.count({
+          where: {
+            academicYearId: yearId,
+            classId,
+            subjectId: { in: guarded },
+          },
+        });
+        if (chosen > 0) {
+          throw new ConflictException(
+            `${chosen} student choice(s) depend on subjects being removed or made compulsory. Clear those choices first.`,
+          );
+        }
+      }
+
       if (toDelete.length > 0) {
         const assigned = await tx.teachingAssignment.count({
           where: {
