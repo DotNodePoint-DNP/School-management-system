@@ -67,5 +67,20 @@ export const AUDIT_ACTIONS = [
   'calendar.settings_updated',
   'calendar.entries_added',
   'calendar.entry_removed',
+
+  'grade_scale.created',
+  'grade_scale.updated',
+  'grade_scale.copied',
+  'grade_scale.default_set',
+  'grade_scale.deleted',
+  'exam.created',
+  'exam.updated',
+  'exam.deleted',
+  'exam.opened',
+  'exam.setup_updated',
+  'exam.setup_copied',
+  'result_policy.set',
+  'result_policy.deleted',
+  'curriculum.credit_hours_set',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

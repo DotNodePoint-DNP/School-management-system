@@ -55,5 +55,8 @@ export const PERMISSIONS = [
   'attendance:mark-any',
   'attendance:correct',
   'attendance:calendar-manage',
+
+  'exams:read',
+  'exams:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
