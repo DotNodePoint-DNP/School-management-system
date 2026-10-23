@@ -134,3 +134,18 @@ export function requireDate(label: string, ad?: string, bs?: string): string {
 export function todayIso(): string {
   return new Date(Date.now() + 345 * 60_000).toISOString().slice(0, 10);
 }
+
+export const daysBetweenIso = (from: string, to: string): number =>
+  Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+      86_400_000,
+  );
+
+export const addDaysIso = (iso: string, days: number): string =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+/** 0 = Sunday ... 6 = Saturday, for a calendar date. */
+export const weekdayOf = (iso: string): number =>
+  new Date(`${iso}T00:00:00Z`).getUTCDay();

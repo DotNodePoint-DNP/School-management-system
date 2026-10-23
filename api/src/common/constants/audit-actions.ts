@@ -60,6 +60,12 @@ export const AUDIT_ACTIONS = [
   'enrollment.deleted',
   'student.status_changed',
   'student.reactivated',
-  'enrollment.subject_choices_set'
+  'enrollment.subject_choices_set',
+
+  'attendance.taken',
+  'attendance.record_changed',
+  'calendar.settings_updated',
+  'calendar.entries_added',
+  'calendar.entry_removed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

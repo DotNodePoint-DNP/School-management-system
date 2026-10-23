@@ -450,6 +450,14 @@ export class EnrollmentsService {
         throw new ConflictException(
           'Only a current enrollment can be deleted; leaving students keep their history',
         );
+      const attendance = await tx.attendanceRecord.count({
+        where: { enrollmentId },
+      });
+      if (attendance > 0) {
+        throw new ConflictException(
+          'This enrollment has attendance records. Withdraw the student instead of deleting the enrollment.',
+        );
+      }
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {
         studentId: current.studentId,

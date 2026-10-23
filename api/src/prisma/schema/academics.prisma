@@ -19,6 +19,11 @@ model AcademicYear {
     teachingAssignments     TeachingAssignment[]
     enrollments             Enrollment[]
 
+    weeklyOffDays            Int[]               @default([0, 6]) @map("weekly_off_days")
+    attendanceEditWindowDays Int                 @default(1) @map("attendance_edit_window_days")
+    calendarEntries          CalendarEntry[]
+    attendanceSessions       AttendanceSession[]
+
     @@map("academic_years")
 }
 
@@ -68,6 +73,7 @@ model Section {
     classTeacherAssignments ClassTeacherAssignment[]
     teachingAssignments     TeachingAssignment[]
     enrollments             Enrollment[]
+    attendanceSessions      AttendanceSession[]
 
     @@unique([id, classId])
     @@unique([classId, name])
@@ -93,11 +99,11 @@ model ClassSubject {
     subjectId      String  @map("subject_id") @db.Uuid
     isCompulsory   Boolean @default(true) @map("is_compulsory")
 
-    academicYear        AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-    schoolClass         SchoolClass          @relation(fields: [classId], references: [id], onDelete: Restrict)
-    subject             Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+    academicYear        AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    schoolClass         SchoolClass            @relation(fields: [classId], references: [id], onDelete: Restrict)
+    subject             Subject                @relation(fields: [subjectId], references: [id], onDelete: Restrict)
     teachingAssignments TeachingAssignment[]
-    studentChoices StudentSubjectChoice[]
+    studentChoices      StudentSubjectChoice[]
 
     @@id([academicYearId, classId, subjectId])
     @@index([classId])
