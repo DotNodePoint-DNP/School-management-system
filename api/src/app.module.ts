@@ -20,6 +20,7 @@ import { MessagingModule } from './infra/messaging/messaging.module.js';
 import { GuardiansModule } from './modules/guardians/guardians.module.js';
 import { StudentsModule } from './modules/students/students.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
+import { ExamsModule } from './modules/exams/exams.module.js';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module.js';
     GuardiansModule,
     StudentsModule,
     AttendanceModule,
+    ExamsModule
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'

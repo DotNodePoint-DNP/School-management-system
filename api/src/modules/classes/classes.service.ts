@@ -133,13 +133,14 @@ export class ClassesService {
         where: { id },
         select: { name: true },
       });
-      const [sections, curriculum] = await Promise.all([
+      const [sections, curriculum, resultPolicies] = await Promise.all([
         tx.section.count({ where: { classId: id } }),
         tx.classSubject.count({ where: { classId: id } }),
+        tx.resultPolicy.count({ where: { classId: id } }),
       ]);
-      if (sections > 0 || curriculum > 0) {
+      if (sections > 0 || curriculum > 0 || resultPolicies > 0) {
         throw new ConflictException(
-          'This class has sections or curriculum records. Deactivate it instead of deleting it.',
+          'This class has sections ,curriculum records or result policies. Deactivate it instead of deleting it.',
         );
       }
       await tx.schoolClass.delete({ where: { id } });

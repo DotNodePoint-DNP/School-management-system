@@ -364,21 +364,38 @@ export class AcademicYearsService {
         throw new ConflictException(
           'Only a planned academic year can be deleted',
         );
-      const [terms, curriculum, classTeachers, enrolments, calendar, sessions] =
-        await Promise.all([
-          tx.term.count({ where: { academicYearId: id } }),
-          tx.classSubject.count({ where: { academicYearId: id } }),
-          tx.classTeacherAssignment.count({ where: { academicYearId: id } }),
-          tx.enrollment.count({ where: { academicYearId: id } }),
-          tx.calendarEntry.count({ where: { academicYearId: id } }),
-          tx.attendanceSession.count({ where: { academicYearId: id } }),
-        ]);
+      const [
+        terms,
+        curriculum,
+        classTeachers,
+        enrolments,
+        calendar,
+        sessions,
+        exams,
+        resultPolicies,
+      ] = await Promise.all([
+        tx.term.count({ where: { academicYearId: id } }),
+        tx.classSubject.count({ where: { academicYearId: id } }),
+        tx.classTeacherAssignment.count({ where: { academicYearId: id } }),
+        tx.enrollment.count({ where: { academicYearId: id } }),
+        tx.calendarEntry.count({ where: { academicYearId: id } }),
+        tx.attendanceSession.count({ where: { academicYearId: id } }),
+        tx.exam.count({ where: { academicYearId: id } }),
+        tx.resultPolicy.count({ where: { academicYearId: id } }),
+      ]);
       if (
-        terms + curriculum + classTeachers + enrolments + calendar + sessions >
+        terms +
+          curriculum +
+          classTeachers +
+          enrolments +
+          calendar +
+          sessions +
+          exams +
+          resultPolicies >
         0
       ) {
         throw new ConflictException(
-          "Remove this academic year's terms, curriculum, teacher assignments, enrollments and calendar first",
+          "Remove this academic year's terms, curriculum, teacher assignments, enrollments, calendar, exams and result policies first",
         );
       }
       await tx.academicYear.delete({ where: { id } });
@@ -490,6 +507,11 @@ export class AcademicYearsService {
   ): Promise<void> {
     const name = await this.prisma.$transaction(async (tx) => {
       await this.lockWritableYear(tx, yearId);
+      const usedByExams = await tx.exam.count({ where: { termId } });
+      if (usedByExams > 0)
+        throw new ConflictException(
+          `${usedByExams} exam(s) use this term. Detach them first.`,
+        );
       const term = await tx.term.findFirst({
         where: { id: termId, academicYearId: yearId },
         select: { name: true },
