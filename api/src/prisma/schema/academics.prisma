@@ -78,6 +78,7 @@ model Section {
     teachingAssignments     TeachingAssignment[]
     enrollments             Enrollment[]
     attendanceSessions      AttendanceSession[]
+    markSheets              MarkSheet[]
 
     @@unique([id, classId])
     @@unique([classId, name])

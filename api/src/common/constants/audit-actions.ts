@@ -82,5 +82,13 @@ export const AUDIT_ACTIONS = [
   'result_policy.set',
   'result_policy.deleted',
   'curriculum.credit_hours_set',
+
+  'marks.saved',
+  'marks.submitted',
+  'marks.reopened',
+  'marks.corrected',
+  'exam.locked',
+  'exam.unlocked',
+  'exam.published',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -212,6 +212,7 @@ model Enrollment {
   section           Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
   subjectChoices    StudentSubjectChoice[]
   attendanceRecords AttendanceRecord[]
+  marks             Mark[]
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])
