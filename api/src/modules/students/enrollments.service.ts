@@ -458,6 +458,11 @@ export class EnrollmentsService {
           'This enrollment has attendance records. Withdraw the student instead of deleting the enrollment.',
         );
       }
+      const marked = await tx.mark.count({ where: { enrollmentId } });
+      if (marked > 0)
+        throw new ConflictException(
+          'This enrollment has exam marks. Withdraw the student instead of deleting the enrollment.',
+        );
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {
         studentId: current.studentId,

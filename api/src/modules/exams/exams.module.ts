@@ -7,6 +7,11 @@ import { GradeScalesController } from './grade-scales.controller.js';
 import { GradeScalesService } from './grade-scales.service.js';
 import { ResultPoliciesController } from './result-policies.controller.js';
 import { ResultPoliciesService } from './result-policies.service.js';
+import { MarksController } from './marks.controller.js';
+import { ExamWorkflowController } from './exam-workflow.controller.js';
+import { MarksService } from './marks.service.js';
+import { MarksAccessService } from './marks-access.service.js';
+import { ExamWorkflowService } from './exam-workflow.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -14,8 +19,23 @@ import { ResultPoliciesService } from './result-policies.service.js';
     GradeScalesController,
     ExamsController,
     ResultPoliciesController,
+    MarksController,
+    ExamWorkflowController,
   ],
-  providers: [GradeScalesService, ExamsService, ResultPoliciesService],
-  exports: [GradeScalesService, ExamsService, ResultPoliciesService],
+  providers: [
+    GradeScalesService,
+    ExamsService,
+    ResultPoliciesService,
+    MarksService,
+    MarksAccessService,
+    ExamWorkflowService,
+  ],
+  exports: [
+    GradeScalesService,
+    ExamsService,
+    ResultPoliciesService,
+    MarksService,
+    ExamWorkflowService,
+  ],
 })
 export class ExamsModule {}

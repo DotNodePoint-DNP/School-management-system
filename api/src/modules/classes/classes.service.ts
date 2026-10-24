@@ -240,14 +240,15 @@ export class ClassesService {
     });
     if (!section) throw new NotFoundException('Section not found');
 
-    const [enrolments, classTeachers, teachers, sessions] = await Promise.all([
+    const [enrolments, classTeachers, teachers, sessions ,markSheet] = await Promise.all([
       this.prisma.enrollment.count({ where: { sectionId } }),
       this.prisma.classTeacherAssignment.count({ where: { sectionId } }),
       this.prisma.teachingAssignment.count({ where: { sectionId } }),
       this.prisma.attendanceSession.count({ where: { sectionId } }),
+      this.prisma.markSheet.count({ where: { sectionId } })
     ]);
 
-    if (enrolments + classTeachers + teachers + sessions > 0) {
+    if (enrolments + classTeachers + teachers + sessions + markSheet > 0) {
       throw new ConflictException(
         'This section has enrollment, teaching, or attendance history. Deactivate it instead of deleting it.',
       );

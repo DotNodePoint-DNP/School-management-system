@@ -134,6 +134,15 @@ export class SubjectChoicesService {
           where: { enrollmentId, subjectId: { in: toRemove } },
         });
       }
+      if (toRemove.length > 0) {
+        const marked = await tx.mark.count({
+          where: { enrollmentId, sheet: { subjectId: { in: toRemove } } },
+        });
+        if (marked > 0)
+          throw new ConflictException(
+            'Marks have been entered for a subject being removed. Remove those marks first.',
+          );
+      }
       if (toAdd.length > 0) {
         await tx.studentSubjectChoice.createMany({
           data: toAdd.map((subjectId) => ({

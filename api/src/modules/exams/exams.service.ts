@@ -486,6 +486,30 @@ export class ExamsService {
     };
   }
 
+  /** Shared lock: marks entry runs in parallel; lock/unlock/publish (exclusive) wait for it. Rejects closed years. */
+  async lockExamShared(tx: Tx, examId: string): Promise<ExamLock> {
+    const found = await tx.exam.findUnique({
+      where: { id: examId },
+      select: { academicYearId: true },
+    });
+    if (!found) throw new NotFoundException('Exam not found');
+    const year = await this.years.lockYearShared(tx, found.academicYearId);
+    if (year.status === 'CLOSED')
+      throw new ConflictException(
+        'This academic year is closed and can no longer be changed',
+      );
+    const rows = await tx.$queryRaw<
+      { status: ExamStatusValue }[]
+    >`SELECT status::text AS status FROM exams WHERE id = ${examId}::uuid FOR SHARE`;
+    const row = rows[0];
+    if (!row) throw new NotFoundException('Exam not found');
+    return {
+      id: examId,
+      academicYearId: found.academicYearId,
+      status: row.status,
+    };
+  }
+
   private async assertTermInYear(
     tx: Tx,
     termId: string,
