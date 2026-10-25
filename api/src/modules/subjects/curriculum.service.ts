@@ -24,6 +24,7 @@ export interface CurriculumResponse {
     name: string;
     isActive: boolean;
     isCompulsory: boolean;
+    creditHours: number | null;
   }[];
 }
 
@@ -63,8 +64,14 @@ export class CurriculumService {
       orderBy: { subject: { code: 'asc' } },
       select: {
         isCompulsory: true,
+        creditHours: true,
         subject: {
-          select: { id: true, code: true, name: true, isActive: true },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            isActive: true,
+          },
         },
       },
     });
@@ -77,6 +84,7 @@ export class CurriculumService {
         name: r.subject.name,
         isActive: r.subject.isActive,
         isCompulsory: r.isCompulsory,
+        creditHours: r.creditHours?.toNumber() ?? null,
       })),
     };
   }
@@ -157,6 +165,18 @@ export class CurriculumService {
             `${assigned} teacher assignment(s) use the subjects being removed. Remove those assignments first.`,
           );
         }
+        const inExams = await tx.examSubject.count({
+          where: {
+            academicYearId: yearId,
+            classId,
+            subjectId: { in: toDelete },
+          },
+        });
+        if (inExams > 0) {
+          throw new ConflictException(
+            `${inExams} exam setup(s) use the subjects being removed. Remove them from the exams first.`,
+          );
+        }
         await tx.classSubject.deleteMany({
           where: {
             academicYearId: yearId,
@@ -165,6 +185,7 @@ export class CurriculumService {
           },
         });
       }
+
       if (toCreate.length > 0) {
         await tx.classSubject.createMany({
           data: toCreate.map(([subjectId, isCompulsory]) => ({
@@ -240,6 +261,7 @@ export class CurriculumService {
           classId: true,
           subjectId: true,
           isCompulsory: true,
+          creditHours: true,
           schoolClass: { select: { isActive: true } },
           subject: { select: { isActive: true } },
         },
@@ -256,6 +278,7 @@ export class CurriculumService {
                 classId: r.classId,
                 subjectId: r.subjectId,
                 isCompulsory: r.isCompulsory,
+                creditHours: r.creditHours,
               })),
               skipDuplicates: true,
             })
@@ -275,5 +298,33 @@ export class CurriculumService {
       details: { sourceYearId, classIds: dto.classIds ?? 'all', ...result },
     });
     return result;
+  }
+
+  async setCreditHours(
+    yearId: string,
+    classId: string,
+    subjectId: string,
+    creditHours: number | null,
+    actor: AuthUser,
+  ): Promise<CurriculumResponse> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.years.lockWritableYear(tx, yearId); // rejects closed years
+      const updated = await tx.classSubject.updateMany({
+        where: { academicYearId: yearId, classId, subjectId },
+        data: { creditHours },
+      });
+      if (updated.count === 0)
+        throw new NotFoundException(
+          "This subject is not in the class's curriculum for this academic year",
+        );
+    }, TX);
+    await this.audit.record({
+      actor,
+      action: 'curriculum.credit_hours_set',
+      entityType: 'curriculum',
+      entityId: `${yearId}:${classId}`,
+      details: { subjectId, creditHours },
+    });
+    return this.list(yearId, classId);
   }
 }

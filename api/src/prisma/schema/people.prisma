@@ -206,14 +206,17 @@ model Enrollment {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  student        Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  academicYear   AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student           Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear      AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
   // The database guarantees the section belongs to the class.
-  section        Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
-  subjectChoices StudentSubjectChoice[]
+  section           Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  subjectChoices    StudentSubjectChoice[]
+  attendanceRecords AttendanceRecord[]
+  marks             Mark[]
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])
+  @@unique([id, academicYearId])
   @@index([academicYearId, sectionId])
   @@index([sectionId, status])
   @@index([classId])
@@ -235,4 +238,91 @@ model StudentSubjectChoice {
   @@id([enrollmentId, subjectId])
   @@index([academicYearId, classId, subjectId])
   @@map("student_subject_choices")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEAVE
+}
+
+enum AttendanceSource {
+  MANUAL
+  CORRECTION
+}
+
+enum CalendarEntryKind {
+  HOLIDAY
+  WORKING_DAY
+}
+
+model CalendarEntry {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  academicYearId String            @map("academic_year_id") @db.Uuid
+  date           DateTime          @db.Date
+  kind           CalendarEntryKind
+  name           String
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  @@unique([academicYearId, date])
+  @@map("calendar_entries")
+}
+
+model AttendanceSession {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  sectionId      String   @map("section_id") @db.Uuid
+  date           DateTime @db.Date
+  takenById      String   @map("taken_by_id") @db.Uuid
+  takenAt        DateTime @default(now()) @map("taken_at") @db.Timestamptz(6)
+
+  academicYear AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  section      Section            @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  records      AttendanceRecord[]
+
+  @@unique([sectionId, date])
+  @@unique([id, date, academicYearId])
+  @@index([academicYearId, date])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  sessionId      String           @map("session_id") @db.Uuid
+  date           DateTime         @db.Date
+  academicYearId String           @map("academic_year_id") @db.Uuid
+  enrollmentId   String           @map("enrollment_id") @db.Uuid
+  status         AttendanceStatus
+  note           String?
+  source         AttendanceSource @default(MANUAL)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // The database guarantees the record's date matches its session and the enrollment is in the same academic year.
+  session    AttendanceSession @relation(fields: [sessionId, date, academicYearId], references: [id, date, academicYearId], onDelete: Restrict)
+  enrollment Enrollment        @relation(fields: [enrollmentId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+  @@id([sessionId, enrollmentId])
+  @@unique([enrollmentId, date]) // one record per student per day, even across a section move
+  @@map("attendance_records")
+}
+
+// Append-only ledger. No foreign keys on purpose, like audit_logs: history must outlive what it describes.
+model AttendanceChange {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  sessionId    String            @map("session_id") @db.Uuid
+  enrollmentId String            @map("enrollment_id") @db.Uuid
+  date         DateTime          @db.Date
+  fromStatus   AttendanceStatus? @map("from_status")
+  toStatus     AttendanceStatus  @map("to_status")
+  reason       String?
+  withinWindow Boolean           @map("within_window")
+  changedById  String            @map("changed_by_id") @db.Uuid
+  changedAt    DateTime          @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  @@index([enrollmentId, changedAt(sort: Desc)])
+  @@index([sessionId, changedAt(sort: Desc)])
+  @@index([changedAt(sort: Desc)])
+  @@map("attendance_changes")
 }

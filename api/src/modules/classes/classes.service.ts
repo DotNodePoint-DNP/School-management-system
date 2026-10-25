@@ -133,13 +133,14 @@ export class ClassesService {
         where: { id },
         select: { name: true },
       });
-      const [sections, curriculum] = await Promise.all([
+      const [sections, curriculum, resultPolicies] = await Promise.all([
         tx.section.count({ where: { classId: id } }),
         tx.classSubject.count({ where: { classId: id } }),
+        tx.resultPolicy.count({ where: { classId: id } }),
       ]);
-      if (sections > 0 || curriculum > 0) {
+      if (sections > 0 || curriculum > 0 || resultPolicies > 0) {
         throw new ConflictException(
-          'This class has sections or curriculum records. Deactivate it instead of deleting it.',
+          'This class has sections ,curriculum records or result policies. Deactivate it instead of deleting it.',
         );
       }
       await tx.schoolClass.delete({ where: { id } });
@@ -238,16 +239,21 @@ export class ClassesService {
       select: { name: true },
     });
     if (!section) throw new NotFoundException('Section not found');
-    const [enrolments, classTeachers, teachers] = await Promise.all([
+
+    const [enrolments, classTeachers, teachers, sessions ,markSheet] = await Promise.all([
       this.prisma.enrollment.count({ where: { sectionId } }),
       this.prisma.classTeacherAssignment.count({ where: { sectionId } }),
       this.prisma.teachingAssignment.count({ where: { sectionId } }),
+      this.prisma.attendanceSession.count({ where: { sectionId } }),
+      this.prisma.markSheet.count({ where: { sectionId } })
     ]);
-    if (enrolments + classTeachers + teachers > 0) {
+
+    if (enrolments + classTeachers + teachers + sessions + markSheet > 0) {
       throw new ConflictException(
-        'This section has enrollment or teaching history. Deactivate it instead of deleting it.',
+        'This section has enrollment, teaching, or attendance history. Deactivate it instead of deleting it.',
       );
     }
+
     await this.prisma.section.delete({ where: { id: sectionId } });
     await this.audit.record({
       actor,

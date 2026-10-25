@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
 } from './curriculum.service.js';
 import { CopyCurriculumDto } from './dto/copy-curriculum.dto.js';
 import { ReplaceClassSubjectsDto } from './dto/replace-class-subjects.dto.js';
+import { SetCreditHoursDto } from './dto/set-credit-hours.dto.js';
 
 @Controller('academic-years')
 export class CurriculumController {
@@ -53,5 +55,23 @@ export class CurriculumController {
     @CurrentUser() actor: AuthUser,
   ): Promise<CopyResult> {
     return this.curriculum.copy(yearId, sourceYearId, dto, actor);
+  }
+
+  @Patch(':yearId/classes/:classId/subjects/:subjectId')
+  @RequirePermissions('subjects:manage')
+  setCreditHours(
+    @Param('yearId', ParseUUIDPipe) yearId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('subjectId', ParseUUIDPipe) subjectId: string,
+    @Body() dto: SetCreditHoursDto,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<CurriculumResponse> {
+    return this.curriculum.setCreditHours(
+      yearId,
+      classId,
+      subjectId,
+      dto.creditHours,
+      actor,
+    );
   }
 }
