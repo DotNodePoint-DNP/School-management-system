@@ -90,5 +90,6 @@ export const AUDIT_ACTIONS = [
   'exam.locked',
   'exam.unlocked',
   'exam.published',
+  'results.revised',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

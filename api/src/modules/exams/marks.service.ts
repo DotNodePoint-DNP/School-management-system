@@ -20,9 +20,10 @@ import type {
 } from './dto/marks.dto.js';
 import { ExamsService } from './exams.service.js';
 import { MarksAccessService } from './marks-access.service.js';
+import { ResultsService } from './results.service.js';
 
 type Tx = Prisma.TransactionClient;
-const TX = { maxWait: 15_000, timeout: 60_000 } as const;
+const TX = { maxWait: 15_000, timeout: 120_000 } as const;
 
 const ENROLLMENT_SELECT = {
   id: true,
@@ -113,6 +114,7 @@ export class MarksService {
     private readonly audit: AuditService,
     private readonly exams: ExamsService,
     private readonly access: MarksAccessService,
+    private readonly results: ResultsService,
   ) {}
 
   async getSheet(
@@ -432,6 +434,15 @@ export class MarksService {
           examStatus: exam.status,
         },
       });
+      if (exam.status === 'PUBLISHED') {
+        await this.results.reviseForCorrection(
+          tx,
+          examId,
+          ctx.section.classId,
+          dto.reason,
+          actor,
+        );
+      }
     }, TX);
     return this.buildSheet(ctx, actor);
   }

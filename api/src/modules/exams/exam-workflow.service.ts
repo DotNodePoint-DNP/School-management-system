@@ -11,9 +11,11 @@ import { AuditService } from '../audit-logs/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import type { ReasonDto } from './dto/marks.dto.js';
 import { ExamsService, type ExamResponse } from './exams.service.js';
+import { ResultsService } from './results.service.js';
 
 type Tx = Prisma.TransactionClient;
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
+const TX_LONG = { maxWait: 15_000, timeout: 180_000 } as const;
 
 // Define a literal key type to prevent string mismatch errors
 type SheetKey = `${string}:${string}`;
@@ -46,6 +48,7 @@ export class ExamWorkflowService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly exams: ExamsService,
+    private readonly results: ResultsService,
   ) {}
 
   async lock(id: string, actor: AuthUser): Promise<ExamResponse> {
@@ -110,13 +113,16 @@ export class ExamWorkflowService {
         where: { id },
         data: { status: 'PUBLISHED', publishedAt: new Date() },
       });
+      // Freeze this exam's results (and the combined result, if this completes the policy) in the same transaction.
+      const frozen = await this.results.publishForExam(tx, id, actor);
       await this.audit.recordIn(tx, {
         actor,
         action: 'exam.published',
         entityType: 'exam',
         entityId: id,
+        details: frozen,
       });
-    }, TX);
+    }, TX_LONG);
     return this.exams.get(id);
   }
 

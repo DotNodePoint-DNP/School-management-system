@@ -183,3 +183,52 @@ model MarkChange {
     @@index([enrollmentId, changedAt(sort: Desc)])
     @@map("mark_changes")
 }
+
+enum ResultStatus {
+    PASS
+    FAIL
+    INCOMPLETE
+}
+
+// Immutable snapshots. No foreign keys on purpose (like audit_logs): published results outlive what they describe.
+model ResultRun {
+    id             String      @id @default(uuid(7)) @db.Uuid
+    academicYearId String      @map("academic_year_id") @db.Uuid
+    classId        String      @map("class_id") @db.Uuid
+    /// "POLICY" for the combined result, or "EXAM:<examId>" for a single exam.
+    scopeKey       String      @map("scope_key")
+    examId         String?     @map("exam_id") @db.Uuid
+    version        Int
+    revised        Boolean     @default(false)
+    reason         String?
+    createdById    String      @map("created_by_id") @db.Uuid
+    createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+    gradeScale     Json        @map("grade_scale")
+    components     Json
+    warnings       Json
+    rows           ResultRow[]
+
+    @@unique([academicYearId, classId, scopeKey, version])
+    @@index([academicYearId, classId, scopeKey])
+    @@map("result_runs")
+}
+
+model ResultRow {
+    runId        String       @map("run_id") @db.Uuid
+    enrollmentId String       @map("enrollment_id") @db.Uuid
+    sectionId    String       @map("section_id") @db.Uuid
+    status       ResultStatus
+    totalMarks   Decimal?     @map("total_marks") @db.Decimal(10, 2)
+    totalFull    Decimal?     @map("total_full") @db.Decimal(10, 2)
+    percentage   Decimal?     @db.Decimal(5, 2)
+    gpa          Decimal?     @db.Decimal(4, 2)
+    sectionRank  Int?         @map("section_rank")
+    classRank    Int?         @map("class_rank")
+    payload      Json
+
+    run ResultRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+    @@id([runId, enrollmentId])
+    @@index([enrollmentId])
+    @@map("result_rows")
+}

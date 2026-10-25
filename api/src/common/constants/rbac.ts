@@ -66,5 +66,9 @@ export const PERMISSIONS = [
   'marks:correct',
   'exams:lock',
   'exams:publish',
+
+  'results:preview',
+  'results:read',
+  'results:read-all',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
