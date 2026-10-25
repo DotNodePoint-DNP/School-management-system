@@ -1,45 +1,77 @@
-import { describe, expect, it } from "vitest";
-import {
-  requestPasswordReset,
-  resetPassword,
-  signIn,
-} from "@/modules/auth/services/auth-service";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setApiAccessToken } from "@/lib/api/client";
+import { signIn } from "@/modules/auth/services/auth-service";
 
-describe("mock auth service", () => {
-  it("signs in with the selected role", async () => {
-    const result = await signIn({
-      identifier: "teacher@example.test",
-      password: "correct horse battery staple",
-      role: "teacher_staff",
-    });
+const session = {
+  accessToken: "access-token",
+  expiresIn: 900,
+  user: {
+    id: "user-id",
+    fullName: "School Administrator",
+    displayName: "School Administrator",
+    email: "admin@example.test",
+    phone: null,
+    mustChangePassword: false,
+    roles: ["ADMIN"],
+    permissions: ["students:read-all", "roles:manage"],
+    role: "school_admin" as const,
+  },
+};
 
-    expect(result.mode).toBe("mock");
-    expect(result.user.role).toBe("teacher_staff");
-    expect(result.user.id).toBe("demo-teacher_staff");
-  });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  setApiAccessToken(null);
+});
 
-  it("rejects empty login credentials", async () => {
-    await expect(
-      signIn({ identifier: "", password: "", role: "parent" }),
-    ).rejects.toThrow("Enter your email address or phone number.");
-  });
-
-  it("accepts password recovery without revealing account existence", async () => {
-    const result = await requestPasswordReset({
-      identifier: "+977 9800000000",
-      role: "parent",
-    });
-
-    expect(result).toEqual({ accepted: true, mode: "mock" });
-  });
-
-  it("validates reset password length and token", async () => {
-    await expect(
-      resetPassword({ token: "", password: "short", role: "parent" }),
-    ).rejects.toThrow("Your new password must be at least 8 characters.");
+describe("auth service", () => {
+  it("sends credentials to the same-origin API route and stores the access token", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(session), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      resetPassword({ token: "demo-token", password: "new-password", role: "parent" }),
-    ).resolves.toBeUndefined();
+      signIn({
+        identifier: "admin@example.test",
+        password: "correct horse battery staple",
+      }),
+    ).resolves.toEqual(session);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/login",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "same-origin",
+        body: JSON.stringify({
+          identifier: "admin@example.test",
+          password: "correct horse battery staple",
+        }),
+      }),
+    );
+  });
+
+  it("surfaces authentication failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: false,
+            error: { message: "Invalid credentials" },
+          }),
+          {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      signIn({ identifier: "admin@example.test", password: "wrong-password" }),
+    ).rejects.toThrow("Invalid credentials");
   });
 });

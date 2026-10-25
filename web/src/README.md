@@ -17,9 +17,11 @@ The marketing website is served on the primary domain, for example `Pathivara .e
 
 The frontend recognizes four roles: `teacher_staff`, `school_admin`, `accountant`, and `parent`. `src/core/authorization/` owns permissions and role-aware navigation. These checks control the interface only; the API must independently authorize every request and enforce school/tenant scope.
 
-Keep server URLs in `NEXT_PUBLIC_API_URL` and keep authentication, persistence, validation, and business rules in the API service rather than this frontend.
+Set `NEXT_PUBLIC_API_URL` at build time to the browser-reachable backend origin, optionally including `/api/v1` (for example, `https://api.example.com/api/v1`). The shared API client adds `/api/v1` when it is not already present. Production requires HTTPS. This URL is public configuration, not a secret. Configure the API server's `CORS_ORIGINS` for the web app origin when using direct browser API requests.
 
-While the backend is under development, auth forms use the mock adapter by default. Set `NEXT_PUBLIC_AUTH_MODE=api` to route login and password-recovery requests to the API. Mock mode is for frontend development only and does not create a secure session.
+Authentication always uses the API through same-origin Next.js route handlers. Configure `SESSION_SECRET` on the web server with at least 32 random characters; it signs the HTTP-only session cookie and must never be exposed to the browser. The session and backend refresh-token cookies expire with the backend refresh session. The API currently supports sign-in, session refresh, sign-out, current-user lookup, and authenticated password change; password recovery/reset is not exposed until the backend adds those endpoints.
+
+The workspace shown after sign-in is derived from the backend system roles (`ADMIN`, `TEACHER`, `ACCOUNTANT`, `PARENT`), while dashboard navigation is filtered using the backend permissions. The API remains the authority for every data request. `NEXT_PUBLIC_AUTH_MODE` is retained only for the separate admission-form demo/API switch; it no longer changes authentication behavior.
 
 ## PWA
 

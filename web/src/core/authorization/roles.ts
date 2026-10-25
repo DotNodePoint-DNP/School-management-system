@@ -7,6 +7,74 @@ export const roles = [
 
 export type Role = (typeof roles)[number];
 
+export interface ApiUser {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  mustChangePassword: boolean;
+  roles: string[];
+  permissions: string[];
+}
+
+const apiRoleMap = new Map<string, Role>([
+  ["ADMIN", "school_admin"],
+  ["TEACHER", "teacher_staff"],
+  ["ACCOUNTANT", "accountant"],
+  ["PARENT", "parent"],
+]);
+
+export function currentUserFromApi(value: unknown): CurrentUser {
+  if (!value || typeof value !== "object") {
+    throw new Error("The API returned an invalid user.");
+  }
+  const user = value as Partial<ApiUser>;
+  if (
+    typeof user.id !== "string" ||
+    typeof user.fullName !== "string" ||
+    user.fullName.trim().length === 0 ||
+    (user.email !== undefined &&
+      user.email !== null &&
+      typeof user.email !== "string") ||
+    (user.phone !== undefined &&
+      user.phone !== null &&
+      typeof user.phone !== "string") ||
+    typeof user.mustChangePassword !== "boolean" ||
+    !Array.isArray(user.roles) ||
+    !user.roles.every((role) => typeof role === "string") ||
+    !Array.isArray(user.permissions) ||
+    !user.permissions.every((permission) => typeof permission === "string")
+  ) {
+    throw new Error("The API returned an invalid user.");
+  }
+
+  const mappedRoles = [
+    ...new Set(user.roles.map((role) => apiRoleMap.get(role))),
+  ].filter((role): role is Role => role !== undefined);
+  if (mappedRoles.length === 0) {
+    throw new Error("This account does not have a supported workspace role.");
+  }
+
+  const role = (
+    ["school_admin", "teacher_staff", "accountant", "parent"] as const
+  ).find((candidate) => mappedRoles.includes(candidate));
+  if (!role) {
+    throw new Error("This account does not have a supported workspace role.");
+  }
+
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    displayName: user.fullName,
+    email: user.email ?? null,
+    phone: user.phone ?? null,
+    mustChangePassword: user.mustChangePassword,
+    roles: user.roles,
+    permissions: user.permissions,
+    role,
+  };
+}
+
 export const roleDetails: Record<
   Role,
   { label: string; description: string; icon: string; accent: string; identifier: string }
@@ -47,7 +115,12 @@ export function isRole(value: string): value is Role {
 
 export interface CurrentUser {
   id: string;
+  fullName: string;
   displayName: string;
+  email: string | null;
+  phone: string | null;
+  mustChangePassword: boolean;
+  roles: string[];
+  permissions: string[];
   role: Role;
-  schoolId: string;
 }
