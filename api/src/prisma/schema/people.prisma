@@ -46,6 +46,11 @@ model Staff {
   user                    User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
   classTeacherAssignments ClassTeacherAssignment[]
   teachingAssignments     TeachingAssignment[]
+  signatureFileId         String?                  @map("signature_file_id") @db.Uuid
+  signatureMode           SignatureMode            @default(LINE) @map("signature_mode")
+  signatoryRoles          Signatory[]
+
+  signatureFile StoredFile? @relation("StaffSignatureFile", fields: [signatureFileId], references: [id], onDelete: Restrict)
 
   @@index([lastName, firstName])
   @@index([status, kind])

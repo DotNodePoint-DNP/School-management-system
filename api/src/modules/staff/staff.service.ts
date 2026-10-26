@@ -429,6 +429,12 @@ export class StaffService {
         throw new ConflictException(
           'This staff member has assignment history. Mark them as left instead.',
         );
+
+      const signatories = await tx.signatory.count({ where: { staffId: id } });
+      if (signatories > 0)
+        throw new ConflictException(
+          'This staff member is linked to a signatory record. Mark them as left instead.',
+        );
       await tx.staff.delete({ where: { id } });
       return staff.staffNo;
     }, TX);
