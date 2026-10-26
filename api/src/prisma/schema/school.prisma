@@ -1,0 +1,76 @@
+enum FileKind {
+    LOGO
+    SEAL
+    SIGNATURE
+}
+
+enum DocumentLanguage {
+    EN
+    NP
+    BOTH
+}
+
+model StoredFile {
+    id           String   @id @default(uuid(7)) @db.Uuid
+    kind         FileKind
+    objectKey    String   @unique @map("object_key")
+    contentType  String   @map("content_type")
+    sizeBytes    Int      @map("size_bytes")
+    width        Int
+    height       Int
+    sha256       String
+    uploadedById String   @map("uploaded_by_id") @db.Uuid
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+    logoOf SchoolProfile[] @relation("SchoolLogo")
+    sealOf SchoolProfile[] @relation("SchoolSeal")
+
+    @@map("stored_files")
+}
+
+/// Exactly one row (id = 1).
+model SchoolProfile {
+    id                Int              @id @default(1)
+    version           Int              @default(1)
+    nameEn            String           @map("name_en")
+    nameNp            String?          @map("name_np")
+    shortName         String?          @map("short_name")
+    taglineEn         String?          @map("tagline_en")
+    taglineNp         String?          @map("tagline_np")
+    schoolType        String?          @map("school_type")
+    establishedOn     DateTime?        @map("established_on") @db.Date
+    province          String?
+    district          String?
+    localLevel        String?          @map("local_level")
+    wardNo            Int?             @map("ward_no")
+    tole              String?
+    postalCode        String?          @map("postal_code")
+    addressLineNp     String?          @map("address_line_np")
+    phones            Json             @default("[]")
+    email             String?
+    website           String?
+    identifiers       Json             @default("[]")
+    documentLanguage  DocumentLanguage @default(BOTH) @map("document_language")
+    nepaliDigits      Boolean          @default(false) @map("nepali_digits")
+    admissionNoPrefix String           @default("ADM") @map("admission_no_prefix")
+    staffNoPrefix     String           @default("STF") @map("staff_no_prefix")
+    logoFileId        String?          @map("logo_file_id") @db.Uuid
+    sealFileId        String?          @map("seal_file_id") @db.Uuid
+    updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+    updatedById       String?          @map("updated_by_id") @db.Uuid
+
+    logoFile StoredFile? @relation("SchoolLogo", fields: [logoFileId], references: [id], onDelete: Restrict)
+    sealFile StoredFile? @relation("SchoolSeal", fields: [sealFileId], references: [id], onDelete: Restrict)
+
+    @@map("school_profile")
+}
+
+/// Append-only history. Each row is the full profile as it was after that save.
+model SchoolProfileVersion {
+    version     Int      @id
+    snapshot    Json
+    changedById String?  @map("changed_by_id") @db.Uuid
+    changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+    @@map("school_profile_versions")
+}

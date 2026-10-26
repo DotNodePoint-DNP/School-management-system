@@ -40,6 +40,7 @@ import {
   EnrollmentsService,
   type EnrollmentRow,
 } from './enrollments.service.js';
+import { SchoolService } from '../school/school.service.js';
 
 type Tx = Prisma.TransactionClient;
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
@@ -231,6 +232,7 @@ export class StudentsService {
     private readonly access: StudentAccessService,
     private readonly accounts: ParentAccountsService,
     private readonly enrollments: EnrollmentsService,
+    private readonly school: SchoolService,
   ) {}
 
   async list(
@@ -581,9 +583,10 @@ export class StudentsService {
 
   /** ADM-<BS year>-NNN from an atomic per-year counter. Skips numbers already taken by manual entries. */
   private async generateAdmissionNo(tx: Tx, bsYear: number): Promise<string> {
+    const { admissionNoPrefix } = await this.school.prefixes(tx);
     for (let attempt = 0; attempt < 100; attempt++) {
       const n = await nextSequence(tx, `admission:${bsYear}`);
-      const candidate = `ADM-${bsYear}-${String(n).padStart(3, '0')}`;
+      const candidate = `${admissionNoPrefix}-${bsYear}-${String(n).padStart(3, '0')}`;
       const taken = await tx.student.findUnique({
         where: { admissionNo: candidate },
         select: { id: true },

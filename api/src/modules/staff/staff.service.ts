@@ -30,6 +30,7 @@ import type { CreateStaffDto } from './dto/create-staff.dto.js';
 import type { LeaveStaffDto } from './dto/leave-staff.dto.js';
 import type { ListStaffQueryDto } from './dto/list-staff-query.dto.js';
 import type { UpdateStaffDto } from './dto/update-staff.dto.js';
+import { SchoolService } from '../school/school.service.js';
 
 type Tx = Prisma.TransactionClient;
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
@@ -132,6 +133,7 @@ export class StaffService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly users: UsersService,
+    private readonly school: SchoolService,
   ) {}
 
   async list(query: ListStaffQueryDto): Promise<Paginated<StaffListItem>> {
@@ -186,9 +188,10 @@ export class StaffService {
       throw new BadRequestException('Invalid phone number');
 
     const row = await this.prisma.$transaction(async (tx) => {
+      const { staffNoPrefix } = await this.school.prefixes(tx);
       const staffNo =
         dto.staffNo ??
-        `STF-${String(await nextSequence(tx, 'staff')).padStart(4, '0')}`;
+        `${staffNoPrefix}-${String(await nextSequence(tx, 'staff')).padStart(4, '0')}`;
       return tx.staff.create({
         data: {
           staffNo,
