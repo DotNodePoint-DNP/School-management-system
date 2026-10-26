@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -61,6 +62,29 @@ class EnvVars {
   @IsNotEmpty()
   @MaxLength(60)
   SCHOOL_NAME: string = 'School';
+
+  @IsIn(['r2', 'memory', 'disabled'])
+  STORAGE_DRIVER: string = 'disabled';
+
+  @ValidateIf((o: EnvVars) => o.STORAGE_DRIVER === 'r2')
+  @IsString()
+  @IsNotEmpty()
+  R2_ACCOUNT_ID?: string;
+
+  @ValidateIf((o: EnvVars) => o.STORAGE_DRIVER === 'r2')
+  @IsString()
+  @IsNotEmpty()
+  R2_ACCESS_KEY_ID?: string;
+
+  @ValidateIf((o: EnvVars) => o.STORAGE_DRIVER === 'r2')
+  @IsString()
+  @IsNotEmpty()
+  R2_SECRET_ACCESS_KEY?: string;
+
+  @ValidateIf((o: EnvVars) => o.STORAGE_DRIVER === 'r2')
+  @IsString()
+  @IsNotEmpty()
+  R2_BUCKET?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {
@@ -80,6 +104,12 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
     throw new Error(
       'SMS_PROVIDER and EMAIL_PROVIDER must not be "console" in production: messages would only be printed to the log',
     );
+  }
+  if (
+    validated.NODE_ENV === NodeEnv.Production &&
+    validated.STORAGE_DRIVER !== 'r2'
+  ) {
+    throw new Error('STORAGE_DRIVER must be "r2" in production');
   }
   return validated;
 }

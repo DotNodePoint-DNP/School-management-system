@@ -91,5 +91,11 @@ export const AUDIT_ACTIONS = [
   'exam.unlocked',
   'exam.published',
   'results.revised',
+
+  'school.profile_updated',
+  'school.logo_set',
+  'school.logo_removed',
+  'school.seal_set',
+  'school.seal_removed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

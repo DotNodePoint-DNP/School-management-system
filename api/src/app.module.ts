@@ -21,6 +21,8 @@ import { GuardiansModule } from './modules/guardians/guardians.module.js';
 import { StudentsModule } from './modules/students/students.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { ExamsModule } from './modules/exams/exams.module.js';
+import { StorageModule } from './infra/storage/storage.module.js';
+import { SchoolModule } from './modules/school/school.module.js';
 
 @Module({
   imports: [
@@ -44,7 +46,9 @@ import { ExamsModule } from './modules/exams/exams.module.js';
     GuardiansModule,
     StudentsModule,
     AttendanceModule,
-    ExamsModule
+    ExamsModule,
+    StorageModule,
+    SchoolModule
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'
