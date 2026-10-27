@@ -4,12 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ATTENDANCE_STATUSES,
-  ATTENDED_STATUSES,
-  type AttendanceStatusValue,
-} from '../../common/constants/attendance.js';
-import { adToBsString, toIsoDate } from '../../common/utils/bs-date.js';
+// import { adToBsString, toIsoDate } from '../../common/utils/bs-date.js';
 import { displayName } from '../../common/utils/person.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -71,7 +66,7 @@ interface StoredScale {
   name: string;
   bands: CalcBand[];
 }
-interface StoredPayload {
+export interface StoredPayload {
   subjects: SubjectResult[];
   missing: string[];
   failedSubjects: string[];
@@ -109,7 +104,7 @@ const toScale = (s: ScaleRow): StoredScale => ({
 });
 const json = (value: unknown): Prisma.InputJsonValue =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
-const scopeOf = (examId?: string): string =>
+export const scopeOf = (examId?: string): string =>
   examId ? `EXAM:${examId}` : 'POLICY';
 
 @Injectable()
@@ -441,96 +436,96 @@ export class ResultsService {
   }
 
   /** Everything a printed report card needs. Attendance is live (to date), not frozen. */
-  async reportCard(
-    enrollmentId: string,
-    q: { examId?: string; version?: number },
-    actor: AuthUser,
-  ) {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      select: {
-        id: true,
-        academicYearId: true,
-        classId: true,
-        sectionId: true,
-        rollNo: true,
-        student: { select: STUDENT_SELECT },
-        section: {
-          select: { name: true, schoolClass: { select: { name: true } } },
-        },
-        academicYear: { select: { name: true } },
-      },
-    });
-    if (!enrollment) throw new NotFoundException('Enrollment not found');
+  // async reportCard(
+  //   enrollmentId: string,
+  //   q: { examId?: string; version?: number },
+  //   actor: AuthUser,
+  // ) {
+  //   const enrollment = await this.prisma.enrollment.findUnique({
+  //     where: { id: enrollmentId },
+  //     select: {
+  //       id: true,
+  //       academicYearId: true,
+  //       classId: true,
+  //       sectionId: true,
+  //       rollNo: true,
+  //       student: { select: STUDENT_SELECT },
+  //       section: {
+  //         select: { name: true, schoolClass: { select: { name: true } } },
+  //       },
+  //       academicYear: { select: { name: true } },
+  //     },
+  //   });
+  //   if (!enrollment) throw new NotFoundException('Enrollment not found');
 
-    const run = await this.findRun(
-      this.prisma,
-      enrollment.academicYearId,
-      enrollment.classId,
-      scopeOf(q.examId),
-      q.version,
-    );
-    const row = await this.prisma.resultRow.findUnique({
-      where: { runId_enrollmentId: { runId: run.id, enrollmentId } },
-    });
-    if (!row)
-      throw new NotFoundException('This student is not part of that result');
-    await this.assertCanRead(enrollment.academicYearId, row.sectionId, actor);
+  //   const run = await this.findRun(
+  //     this.prisma,
+  //     enrollment.academicYearId,
+  //     enrollment.classId,
+  //     scopeOf(q.examId),
+  //     q.version,
+  //   );
+  //   const row = await this.prisma.resultRow.findUnique({
+  //     where: { runId_enrollmentId: { runId: run.id, enrollmentId } },
+  //   });
+  //   if (!row)
+  //     throw new NotFoundException('This student is not part of that result');
+  //   await this.assertCanRead(enrollment.academicYearId, row.sectionId, actor);
 
-    const [classSize, sectionSize, attendance] = await Promise.all([
-      this.prisma.resultRow.count({
-        where: { runId: run.id, status: { not: 'INCOMPLETE' } },
-      }),
-      this.prisma.resultRow.count({
-        where: {
-          runId: run.id,
-          sectionId: row.sectionId,
-          status: { not: 'INCOMPLETE' },
-        },
-      }),
-      this.attendanceFor(enrollmentId),
-    ]);
-    const payload = row.payload as unknown as StoredPayload;
-    const dob = toIsoDate(enrollment.student.dateOfBirth);
-    return {
-      student: {
-        id: enrollment.student.id,
-        admissionNo: enrollment.student.admissionNo,
-        name: displayName(enrollment.student),
-        fullNameNp: enrollment.student.fullNameNp,
-        gender: enrollment.student.gender,
-        dateOfBirth: dob,
-        dateOfBirthBs: adToBsString(dob),
-      },
-      academicYear: {
-        id: enrollment.academicYearId,
-        name: enrollment.academicYear.name,
-      },
-      class: {
-        id: enrollment.classId,
-        name: enrollment.section.schoolClass.name,
-      },
-      section: { id: row.sectionId, name: enrollment.section.name },
-      rollNo: enrollment.rollNo,
-      run: this.runInfo(run),
-      result: {
-        status: row.status,
-        totalMarks: row.totalMarks?.toNumber() ?? null,
-        totalFull: row.totalFull?.toNumber() ?? null,
-        percentage: row.percentage?.toNumber() ?? null,
-        gpa: row.gpa?.toNumber() ?? null,
-        creditBasis: payload.creditBasis,
-        sectionRank: row.sectionRank,
-        classRank: row.classRank,
-        sectionSize,
-        classSize,
-        failedSubjects: payload.failedSubjects,
-        missing: payload.missing,
-      },
-      subjects: payload.subjects,
-      attendance,
-    };
-  }
+  //   const [classSize, sectionSize, attendance] = await Promise.all([
+  //     this.prisma.resultRow.count({
+  //       where: { runId: run.id, status: { not: 'INCOMPLETE' } },
+  //     }),
+  //     this.prisma.resultRow.count({
+  //       where: {
+  //         runId: run.id,
+  //         sectionId: row.sectionId,
+  //         status: { not: 'INCOMPLETE' },
+  //       },
+  //     }),
+  //     this.attendanceFor(enrollmentId),
+  //   ]);
+  //   const payload = row.payload as unknown as StoredPayload;
+  //   const dob = toIsoDate(enrollment.student.dateOfBirth);
+  //   return {
+  //     student: {
+  //       id: enrollment.student.id,
+  //       admissionNo: enrollment.student.admissionNo,
+  //       name: displayName(enrollment.student),
+  //       fullNameNp: enrollment.student.fullNameNp,
+  //       gender: enrollment.student.gender,
+  //       dateOfBirth: dob,
+  //       dateOfBirthBs: adToBsString(dob),
+  //     },
+  //     academicYear: {
+  //       id: enrollment.academicYearId,
+  //       name: enrollment.academicYear.name,
+  //     },
+  //     class: {
+  //       id: enrollment.classId,
+  //       name: enrollment.section.schoolClass.name,
+  //     },
+  //     section: { id: row.sectionId, name: enrollment.section.name },
+  //     rollNo: enrollment.rollNo,
+  //     run: this.runInfo(run),
+  //     result: {
+  //       status: row.status,
+  //       totalMarks: row.totalMarks?.toNumber() ?? null,
+  //       totalFull: row.totalFull?.toNumber() ?? null,
+  //       percentage: row.percentage?.toNumber() ?? null,
+  //       gpa: row.gpa?.toNumber() ?? null,
+  //       creditBasis: payload.creditBasis,
+  //       sectionRank: row.sectionRank,
+  //       classRank: row.classRank,
+  //       sectionSize,
+  //       classSize,
+  //       failedSubjects: payload.failedSubjects,
+  //       missing: payload.missing,
+  //     },
+  //     subjects: payload.subjects,
+  //     attendance,
+  //   };
+  // }
 
   // ---------------------------------------------------------------- internals
 
@@ -851,7 +846,7 @@ export class ResultsService {
     return run;
   }
 
-  private runInfo(run: {
+  runInfo(run: {
     version: number;
     revised: boolean;
     reason: string | null;
@@ -927,28 +922,28 @@ export class ResultsService {
     );
   }
 
-  private async attendanceFor(enrollmentId: string) {
-    const grouped = await this.prisma.attendanceRecord.groupBy({
-      by: ['status'],
-      where: { enrollmentId },
-      _count: { _all: true },
-    });
-    const counts = Object.fromEntries(
-      ATTENDANCE_STATUSES.map((s) => [s, 0]),
-    ) as Record<AttendanceStatusValue, number>;
-    for (const g of grouped) counts[g.status] = g._count._all;
-    const daysRecorded = ATTENDANCE_STATUSES.reduce((n, s) => n + counts[s], 0);
-    const attended = ATTENDED_STATUSES.reduce((n, s) => n + counts[s], 0);
-    return {
-      counts,
-      daysRecorded,
-      attended,
-      percentage:
-        daysRecorded === 0
-          ? null
-          : Math.round((attended / daysRecorded) * 1000) / 10,
-    };
-  }
+  // private async attendanceFor(enrollmentId: string) {
+  //   const grouped = await this.prisma.attendanceRecord.groupBy({
+  //     by: ['status'],
+  //     where: { enrollmentId },
+  //     _count: { _all: true },
+  //   });
+  //   const counts = Object.fromEntries(
+  //     ATTENDANCE_STATUSES.map((s) => [s, 0]),
+  //   ) as Record<AttendanceStatusValue, number>;
+  //   for (const g of grouped) counts[g.status] = g._count._all;
+  //   const daysRecorded = ATTENDANCE_STATUSES.reduce((n, s) => n + counts[s], 0);
+  //   const attended = ATTENDED_STATUSES.reduce((n, s) => n + counts[s], 0);
+  //   return {
+  //     counts,
+  //     daysRecorded,
+  //     attended,
+  //     percentage:
+  //       daysRecorded === 0
+  //         ? null
+  //         : Math.round((attended / daysRecorded) * 1000) / 10,
+  //   };
+  // }
 
   private async assertYearAndClass(
     yearId: string,
@@ -969,7 +964,7 @@ export class ResultsService {
   }
 
   /** results:read-all sees everything; results:read only the sections the user is class teacher of. */
-  private async assertCanRead(
+  async assertCanRead(
     yearId: string,
     sectionId: string | null,
     actor: AuthUser,
@@ -995,6 +990,15 @@ export class ResultsService {
         'You can only view results of sections where you are the class teacher',
       );
   }
+
+  latestRun(
+    yearId: string,
+    classId: string,
+    examId?: string,
+    version?: number,
+  ) {
+    return this.findRun(this.prisma, yearId, classId, scopeOf(examId), version);
+  }
 }
 
 /** Ranked students first (by class rank), then the unranked; ties broken by name for a stable display. */
@@ -1008,3 +1012,5 @@ function byRank<T extends { classRank: number | null; name: string | null }>(
     (a.name ?? '').localeCompare(b.name ?? '')
   );
 }
+
+export type RunInfo = ReturnType<ResultsService['runInfo']>;

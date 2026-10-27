@@ -232,3 +232,21 @@ model ResultRow {
     @@index([enrollmentId])
     @@map("result_rows")
 }
+
+model ReportRemark {
+    id             String   @id @default(uuid(7)) @db.Uuid
+    academicYearId String   @map("academic_year_id") @db.Uuid
+    enrollmentId   String   @map("enrollment_id") @db.Uuid
+    /// "POLICY" for the combined card, or "EXAM:<examId>" for one exam's card.
+    scopeKey       String   @map("scope_key")
+    remark         String
+    updatedById    String   @map("updated_by_id") @db.Uuid
+    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    enrollment Enrollment @relation(fields: [enrollmentId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+    @@unique([enrollmentId, scopeKey])
+    @@index([academicYearId, scopeKey])
+    @@map("report_remarks")
+}

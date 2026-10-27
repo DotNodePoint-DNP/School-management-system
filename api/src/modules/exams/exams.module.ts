@@ -14,6 +14,8 @@ import { MarksAccessService } from './marks-access.service.js';
 import { ExamWorkflowService } from './exam-workflow.service.js';
 import { ResultsController } from './results.controller.js';
 import { ResultsService } from './results.service.js';
+import { RemarksController } from './remarks.controller.js';
+import { RemarksService } from './remarks.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -23,7 +25,8 @@ import { ResultsService } from './results.service.js';
     ResultPoliciesController,
     MarksController,
     ExamWorkflowController,
-    ResultsController
+    ResultsController,
+    RemarksController
   ],
   providers: [
     GradeScalesService,
@@ -32,7 +35,8 @@ import { ResultsService } from './results.service.js';
     MarksService,
     MarksAccessService,
     ExamWorkflowService,
-    ResultsService
+    ResultsService,
+    RemarksService
   ],
   exports: [
     GradeScalesService,

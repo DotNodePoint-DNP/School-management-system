@@ -51,12 +51,12 @@ export class ResultsController {
     return this.results.list(yearId, classId, q, actor);
   }
 
-  @Get('enrollments/:enrollmentId/report-card')
-  reportCard(
-    @Param('enrollmentId', ParseUUIDPipe) enrollmentId: string,
-    @Query() q: ResultsQueryDto,
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.results.reportCard(enrollmentId, q, actor);
-  }
+  // @Get('enrollments/:enrollmentId/report-card')
+  // reportCard(
+  //   @Param('enrollmentId', ParseUUIDPipe) enrollmentId: string,
+  //   @Query() q: ResultsQueryDto,
+  //   @CurrentUser() actor: AuthUser,
+  // ) {
+  //   return this.results.reportCard(enrollmentId, q, actor);
+  // }
 }

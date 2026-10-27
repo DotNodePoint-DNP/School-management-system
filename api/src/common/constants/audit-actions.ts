@@ -105,5 +105,8 @@ export const AUDIT_ACTIONS = [
   'staff.signature_set',
   'staff.signature_removed',
   'staff.signature_mode_set',
+
+  'remarks.saved',
+  'reportcards.printed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -143,49 +143,14 @@ export class LetterheadService {
       );
     }
 
-    let classTeacher: ResolvedSignature | null = null;
-    if (options.classTeacher) {
-      const assignment = await this.prisma.classTeacherAssignment.findUnique({
-        where: {
-          academicYearId_sectionId: {
-            academicYearId: options.classTeacher.academicYearId,
-            sectionId: options.classTeacher.sectionId,
-          },
-        },
-        select: {
-          staff: {
-            select: {
-              firstName: true,
-              middleName: true,
-              lastName: true,
-              fullNameNp: true,
-              signatureMode: true,
-              signatureFileId: true,
-            },
-          },
-        },
-      });
-      if (!assignment) {
-        warnings.push(
-          'This section has no class teacher assigned for that academic year',
-        );
-      } else {
-        const { staff } = assignment;
-        classTeacher = await this.resolve(
-          'CLASS_TEACHER',
-          {
-            fullNameEn: displayName(staff),
-            fullNameNp: staff.fullNameNp,
-            designationEn: CLASS_TEACHER_LABEL.en,
-            designationNp: CLASS_TEACHER_LABEL.np,
-          },
-          staff.signatureMode,
-          staff.signatureFileId,
+    const classTeacher = options.classTeacher
+      ? await this.classTeacherSignature(
+          options.classTeacher.academicYearId,
+          options.classTeacher.sectionId,
           forceLine,
           warnings,
-        );
-      }
-    }
+        )
+      : null;
 
     return {
       asOf,
@@ -304,5 +269,48 @@ export class LetterheadService {
       mode: finalMode,
       image,
     };
+  }
+
+  async classTeacherSignature(
+    academicYearId: string,
+    sectionId: string,
+    forceLine: boolean,
+    warnings: string[],
+  ): Promise<ResolvedSignature | null> {
+    const assignment = await this.prisma.classTeacherAssignment.findUnique({
+      where: { academicYearId_sectionId: { academicYearId, sectionId } },
+      select: {
+        staff: {
+          select: {
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            fullNameNp: true,
+            signatureMode: true,
+            signatureFileId: true,
+          },
+        },
+      },
+    });
+    if (!assignment) {
+      warnings.push(
+        'A section has no class teacher assigned for that academic year',
+      );
+      return null;
+    }
+    const { staff } = assignment;
+    return this.resolve(
+      'CLASS_TEACHER',
+      {
+        fullNameEn: displayName(staff),
+        fullNameNp: staff.fullNameNp,
+        designationEn: CLASS_TEACHER_LABEL.en,
+        designationNp: CLASS_TEACHER_LABEL.np,
+      },
+      staff.signatureMode,
+      staff.signatureFileId,
+      forceLine,
+      warnings,
+    );
   }
 }

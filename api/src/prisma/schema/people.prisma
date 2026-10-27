@@ -218,6 +218,7 @@ model Enrollment {
   subjectChoices    StudentSubjectChoice[]
   attendanceRecords AttendanceRecord[]
   marks             Mark[]
+  remarks           ReportRemark[]
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])
