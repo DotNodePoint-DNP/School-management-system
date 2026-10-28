@@ -7,6 +7,7 @@ import { AttendanceService } from './attendance.service.js';
 import { CalendarController } from './calendar.controller.js';
 import { CalendarService } from './calendar.service.js';
 import { DatesController } from './dates.controller.js';
+import { AttendanceSummaryService } from './attendance-summary.service.js';
 
 @Module({
   imports: [AcademicYearsModule],
@@ -16,7 +17,12 @@ import { DatesController } from './dates.controller.js';
     AttendanceAccessService,
     AttendanceService,
     AttendanceReportsService,
+    AttendanceSummaryService,
   ],
-  exports: [AttendanceService, AttendanceAccessService],
+  exports: [
+    AttendanceService,
+    AttendanceAccessService,
+    AttendanceSummaryService,
+  ],
 })
 export class AttendanceModule {}

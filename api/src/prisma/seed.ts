@@ -96,18 +96,8 @@ async function main(): Promise<void> {
             select: { id: true },
           }))
         ) {
-          const created = await tx.schoolProfile.create({
+          await tx.schoolProfile.create({
             data: { id: 1, nameEn: process.env.SCHOOL_NAME ?? 'School' },
-          });
-          await tx.schoolProfileVersion.create({
-            data: {
-              version: 1,
-              snapshot: {
-                version: 1,
-                nameEn: created.nameEn,
-                note: 'Initial profile created by the seed',
-              },
-            },
           });
         }
 

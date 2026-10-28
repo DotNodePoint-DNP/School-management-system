@@ -634,10 +634,12 @@ describe('Results (e2e)', () => {
       [40, 60],
       [60, 66],
     ]);
-    expect(card.attendance).toEqual({
-      counts: { PRESENT: 0, ABSENT: 0, LATE: 0, LEAVE: 0 },
-      daysRecorded: 0,
-      attended: 0,
+    expect(card.attendance).toMatchObject({
+      totalDays: 0,
+      present: 0,
+      absent: 0,
+      late: 0,
+      leave: 0,
       percentage: null,
     });
 

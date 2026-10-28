@@ -97,5 +97,16 @@ export const AUDIT_ACTIONS = [
   'school.logo_removed',
   'school.seal_set',
   'school.seal_removed',
+
+  'signatory.created',
+  'signatory.updated',
+  'signatory.signature_set',
+  'signatory.signature_removed',
+  'staff.signature_set',
+  'staff.signature_removed',
+  'staff.signature_mode_set',
+
+  'remarks.saved',
+  'reportcards.printed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

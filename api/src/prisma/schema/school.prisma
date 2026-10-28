@@ -22,8 +22,10 @@ model StoredFile {
     uploadedById String   @map("uploaded_by_id") @db.Uuid
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-    logoOf SchoolProfile[] @relation("SchoolLogo")
-    sealOf SchoolProfile[] @relation("SchoolSeal")
+    logoOf          SchoolProfile[] @relation("SchoolLogo")
+    sealOf          SchoolProfile[] @relation("SchoolSeal")
+    signatoryFiles  Signatory[]     @relation("SignatoryFile")
+    staffSignatures Staff[]         @relation("StaffSignatureFile")
 
     @@map("stored_files")
 }
@@ -63,6 +65,43 @@ model SchoolProfile {
     sealFile StoredFile? @relation("SchoolSeal", fields: [sealFileId], references: [id], onDelete: Restrict)
 
     @@map("school_profile")
+}
+
+enum SignatoryRole {
+    PRINCIPAL
+    EXAM_CONTROLLER
+    ACCOUNTANT
+    OTHER
+}
+
+enum SignatureMode {
+    DIGITAL
+    LINE
+}
+
+model Signatory {
+    id              String        @id @default(uuid(7)) @db.Uuid
+    role            SignatoryRole
+    roleLabel       String?       @map("role_label")
+    /// PRINCIPAL, EXAM_CONTROLLER, ACCOUNTANT, or "OTHER:<label in lower case>". Kept consistent by a CHECK.
+    slot            String
+    fullNameEn      String        @map("full_name_en")
+    fullNameNp      String?       @map("full_name_np")
+    designationEn   String        @map("designation_en")
+    designationNp   String?       @map("designation_np")
+    staffId         String?       @map("staff_id") @db.Uuid
+    mode            SignatureMode @default(LINE)
+    signatureFileId String?       @map("signature_file_id") @db.Uuid
+    validFrom       DateTime      @map("valid_from") @db.Date
+    validTo         DateTime?     @map("valid_to") @db.Date
+    createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    staff         Staff?      @relation(fields: [staffId], references: [id], onDelete: Restrict)
+    signatureFile StoredFile? @relation("SignatoryFile", fields: [signatureFileId], references: [id], onDelete: Restrict)
+
+    @@index([slot, validFrom])
+    @@map("signatories")
 }
 
 /// Append-only history. Each row is the full profile as it was after that save.

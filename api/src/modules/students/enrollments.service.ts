@@ -463,6 +463,12 @@ export class EnrollmentsService {
         throw new ConflictException(
           'This enrollment has exam marks. Withdraw the student instead of deleting the enrollment.',
         );
+
+      const remarks = await tx.reportRemark.count({ where: { enrollmentId } });
+      if (remarks > 0)
+        throw new ConflictException(
+          'This enrollment has report remarks. Withdraw the student instead of deleting the enrollment.',
+        );
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {
         studentId: current.studentId,
