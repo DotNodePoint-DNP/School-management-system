@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { can } from "@/core/authorization/can";
-import { permissionForDashboardPath } from "@/core/authorization/navigation";
+import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
 import { sessionCookieName, verifySession } from "@/core/session/token";
 
 const appSubdomain = process.env.APP_SUBDOMAIN ?? "app.localhost";
@@ -24,9 +23,13 @@ export async function proxy(request: NextRequest) {
       url.searchParams.set("next", request.nextUrl.pathname);
       return NextResponse.redirect(url);
     }
-    const permission = permissionForDashboardPath(request.nextUrl.pathname);
-    if (permission && !can(user.role, permission)) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    if (user.mustChangePassword) {
+      return NextResponse.redirect(
+        new URL("/auth/change-password", request.url),
+      );
+    }
+    if (!hasDashboardAccess(request.nextUrl.pathname, user.permissions)) {
+      return NextResponse.redirect(new URL("/auth", request.url));
     }
   }
 

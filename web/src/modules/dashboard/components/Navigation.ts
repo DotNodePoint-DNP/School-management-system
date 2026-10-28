@@ -1,5 +1,5 @@
 // src/modules/dashboard/navigation.ts
-import type { Role } from "@/core/authorization/roles";
+import { permissionsForDashboardModule } from "@/core/authorization/dashboard-access";
 
 /**
  * Icons are referenced by name (not by component) so this config stays
@@ -17,8 +17,6 @@ export type NavModule = {
   slug: string;
   label: string;
   icon: IconName;
-  /** Roles that can see this module. */
-  roles: Role[];
   sections: NavSection[];
 };
 
@@ -27,7 +25,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "settings",
     label: "Settings & School Setup",
     icon: "settings",
-    roles: ["school_admin"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -44,7 +41,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "student-info",
     label: "School information (SIS)",
     icon: "users",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "student-directory", label: "Student directory" },
       { slug: "teacher-directory", label: "Teacher directory" },
@@ -57,7 +53,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Admission-Enrollment",
     label: "Admission & Enrollment",
     icon: "users",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       {slug:"overview", label: "Overview", icon: "UserShield"},
       { slug: "admission-form", label: "Admission form", icon: "UserShield" },
@@ -68,7 +63,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "academic",
     label: "Academic",
     icon: "book",
-    roles: ["school_admin", "teacher_staff", "parent"],
     sections: [
       { slug: "classes", label: "Classes" },
       { slug: "timetable", label: "Timetable" },
@@ -80,7 +74,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "payroll",
     label: "HR & Payroll",
     icon: "wallet",
-    roles: ["school_admin", "accountant"],
     sections: [
       { slug: "staff-salaries", label: "Staff salaries" },
       { slug: "payslips", label: "Payslips" },
@@ -93,7 +86,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Accounting",
     label: "Accounting",
     icon: "wallet",
-    roles: ["school_admin", "accountant"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -105,7 +97,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Attendance ",
     label: "Attendance Management",
     icon: "calandarFold",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -117,7 +108,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Examination-Gradebook",
     label: "Examination & Gradebook",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "exam-setup", label: "Exam/Term setup", icon: "userCog" },
       { slug: "exam-schedule", label: "Exam schedule", icon: "calandarFold" },
@@ -132,7 +122,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Fee Management   ",
     label: "Fee Management",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -144,7 +133,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "ID Card Studio ",
     label: "ID Card Studio",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -156,7 +144,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Library ",
     label: "Library Management",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -168,7 +155,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Transport ",
     label: "Transport Management",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -181,7 +167,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "Reports & Analytics  ",
     label: "Reports & Analytics",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -193,7 +178,6 @@ export const NAV_MODULES: NavModule[] = [
     slug: "communication-notice  ",
     label: "Communication & notice",
     icon: "book",
-    roles: ["school_admin", "teacher_staff"],
     sections: [
       { slug: "school-profile", label: "School profile", icon: "userCog" },
       { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
@@ -210,10 +194,20 @@ export const moduleHref = (m: NavModule) => `${DASHBOARD_HREF}/${m.slug}`;
 export const sectionHref = (m: NavModule, s: NavSection) =>
   `${DASHBOARD_HREF}/${m.slug}/${s.slug}`;
 
-export function modulesForRole(role: Role): NavModule[] {
-  return NAV_MODULES.filter((m) => m.roles.includes(role));
+export function modulesForPermissions(
+  permissions: readonly string[],
+): NavModule[] {
+  return NAV_MODULES.filter((module) => {
+    const required = permissionsForDashboardModule(module.slug);
+    return required.some((permission) => permissions.includes(permission));
+  });
 }
 
-export function findModule(role: Role, slug: string): NavModule | undefined {
-  return modulesForRole(role).find((m) => m.slug === slug);
+export function findModule(
+  permissions: readonly string[],
+  slug: string,
+): NavModule | undefined {
+  return modulesForPermissions(permissions).find(
+    (module) => module.slug === slug,
+  );
 }

@@ -19,6 +19,11 @@ import { StaffModule } from './modules/staff/staff.module.js';
 import { MessagingModule } from './infra/messaging/messaging.module.js';
 import { GuardiansModule } from './modules/guardians/guardians.module.js';
 import { StudentsModule } from './modules/students/students.module.js';
+import { AttendanceModule } from './modules/attendance/attendance.module.js';
+import { ExamsModule } from './modules/exams/exams.module.js';
+import { StorageModule } from './infra/storage/storage.module.js';
+import { SchoolModule } from './modules/school/school.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
 
 @Module({
   imports: [
@@ -41,6 +46,11 @@ import { StudentsModule } from './modules/students/students.module.js';
     MessagingModule,
     GuardiansModule,
     StudentsModule,
+    AttendanceModule,
+    ExamsModule,
+    StorageModule,
+    SchoolModule,
+    DocumentsModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'

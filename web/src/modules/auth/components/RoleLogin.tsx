@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { roleDetails, type Role } from "@/core/authorization/roles";
 import { useAuthStore } from "@/modules/auth/store/auth-store";
-import { establishMockSession } from "@/modules/auth/services/auth-service";
 import { validateIdentifier, validateLoginPassword } from "@/modules/auth/validation";
 import { toast } from "sonner";
 
-export function RoleLogin({ role }: { role: Role }) {
-  const detail = roleDetails[role];
+export function RoleLogin() {
   const router = useRouter();
   const signIn = useAuthStore((state) => state.signIn);
   const [identifier, setIdentifier] = useState("");
@@ -34,28 +31,24 @@ export function RoleLogin({ role }: { role: Role }) {
       const result = await signIn({
         identifier,
         password,
-        role,
       });
-      await establishMockSession(result.user);
       toast.success("Signed in successfully. Opening your workspace...");
-      router.push(`/dashboard?role=${role}`);
-    } catch {
-      const message = "We could not sign you in with those details. Please try again.";
+      router.push(
+        result.user.mustChangePassword
+          ? "/auth/change-password"
+          : "/dashboard",
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We could not sign you in with those details. Please try again.";
       setError(message);
       toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  const accent =
-    detail.accent === "teal"
-      ? "bg-[#d5ebe3] text-[#167d72]"
-      : detail.accent === "navy"
-        ? "bg-[#dce6e4] text-[#315a5b]"
-        : detail.accent === "amber"
-          ? "bg-[#f9e7bd] text-[#ae792b]"
-          : "bg-[#f5dcd2] text-[#b36a58]";
 
   return (
     <main className="flex min-h-screen flex-col bg-[#f4f0e8] px-[7vw] text-[#183d3b] max-[700px]:px-[22px]">
@@ -77,21 +70,17 @@ export function RoleLogin({ role }: { role: Role }) {
         <div className="max-[700px]:mb-10">
           <Link
             className="mb-[45px] inline-block text-[10px] text-[#6d817b] no-underline max-[700px]:mb-[35px]"
-            href="/auth"
+            href="/"
           >
-            ← Change workspace
+            ← Back to website
           </Link>
           <span
-            className={`mt-[5px] grid h-[58px] w-[58px] place-items-center rounded-full text-[23px] ${accent}`}
+            className="mt-[5px] grid h-[58px] w-[58px] place-items-center rounded-full bg-[#dce6e4] text-[23px] text-[#315a5b]"
           >
-            <span
-              aria-hidden="true"
-              className="text-current [&_svg]:h-[30px] [&_svg]:w-[30px] [&_svg]:fill-none"
-              dangerouslySetInnerHTML={{ __html: detail.icon }}
-            />
+            <span aria-hidden="true">n</span>
           </span>
           <p className="mb-4 text-[9px] font-semibold uppercase tracking-[.15em] text-[#b27b3d]">
-            {detail.label} workspace
+            Secure school portal
           </p>
           <h1 className="m-0 mt-[22px] mb-[18px] font-[400_clamp(56px,6vw,84px)/.86_Georgia,serif] tracking-[-.07em]">
             Welcome
@@ -99,7 +88,8 @@ export function RoleLogin({ role }: { role: Role }) {
             <em className="text-[#bc8748]">back.</em>
           </h1>
           <p className="max-w-[225px] text-[12px] leading-[1.65] text-[#70817c]">
-            {detail.description}
+            Sign in with the email or phone number and password provided by
+            your school.
           </p>
           <div className="mt-10 flex max-w-[230px] items-center gap-[9px] border-t border-[#d8dad0] pt-[13px] text-[9px] leading-[1.5] text-[#8a9691]">
             <span className="text-[#bd8847]">✦</span>
@@ -118,7 +108,7 @@ export function RoleLogin({ role }: { role: Role }) {
             </span>
           </div>
           <div className="text-center text-[9px] font-semibold uppercase tracking-[.15em] text-[#b27b3d]">
-            Sign in as {detail.label}
+            Sign in to your account
           </div>
           <h2 className="mt-[18px] mb-2 font-[400_31px_Georgia,serif] tracking-[-.04em]">
             Your workspace awaits.
@@ -133,6 +123,7 @@ export function RoleLogin({ role }: { role: Role }) {
                 className="mt-2 box-border block w-full rounded border border-[#dfe2d8] bg-[#f8f7f0] p-[13px_12px] text-[11px] text-[#183d3b] outline-none focus:border-[#6a9a8c]"
                 autoComplete="username"
                 onChange={(event) => setIdentifier(event.target.value)}
+                maxLength={254}
                 placeholder="you@pathivara.example or +977 98..."
                 required
                 type="text"
@@ -141,16 +132,14 @@ export function RoleLogin({ role }: { role: Role }) {
             </label>
             <label className="block text-[10px] font-semibold text-[#4e6963]">
               Password
-              <Link
-                className="float-right text-[9px] font-normal text-[#b27b3d] underline-offset-[3px]"
-                href={`/auth/forgot-password?role=${role}`}
-              >
-                Forgot password?
-              </Link>
+              <span className="float-right text-[9px] font-normal text-[#89958f]">
+                Need help? Contact your school administrator.
+              </span>
               <div className="relative mt-2">
                 <input
                   className="box-border block w-full rounded border border-[#dfe2d8] bg-[#f8f7f0] p-[13px_40px_13px_12px] text-[11px] text-[#183d3b] outline-none focus:border-[#6a9a8c]"
                   autoComplete="current-password"
+                  maxLength={128}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Enter your password"
                   required

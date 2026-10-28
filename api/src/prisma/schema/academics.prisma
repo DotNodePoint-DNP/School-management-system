@@ -19,6 +19,13 @@ model AcademicYear {
     teachingAssignments     TeachingAssignment[]
     enrollments             Enrollment[]
 
+    weeklyOffDays            Int[]               @default([0, 6]) @map("weekly_off_days")
+    attendanceEditWindowDays Int                 @default(1) @map("attendance_edit_window_days")
+    calendarEntries          CalendarEntry[]
+    attendanceSessions       AttendanceSession[]
+    exams                    Exam[]
+    resultPolicies           ResultPolicy[]
+
     @@map("academic_years")
 }
 
@@ -33,6 +40,7 @@ model Term {
     updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
     academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    exams        Exam[]
 
     @@unique([academicYearId, sequence])
     @@unique([academicYearId, name])
@@ -47,8 +55,9 @@ model SchoolClass {
     createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    sections      Section[]
-    classSubjects ClassSubject[]
+    sections       Section[]
+    classSubjects  ClassSubject[]
+    resultPolicies ResultPolicy[]
 
     @@index([sortOrder])
     @@map("classes")
@@ -68,6 +77,8 @@ model Section {
     classTeacherAssignments ClassTeacherAssignment[]
     teachingAssignments     TeachingAssignment[]
     enrollments             Enrollment[]
+    attendanceSessions      AttendanceSession[]
+    markSheets              MarkSheet[]
 
     @@unique([id, classId])
     @@unique([classId, name])
@@ -93,11 +104,13 @@ model ClassSubject {
     subjectId      String  @map("subject_id") @db.Uuid
     isCompulsory   Boolean @default(true) @map("is_compulsory")
 
-    academicYear        AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-    schoolClass         SchoolClass          @relation(fields: [classId], references: [id], onDelete: Restrict)
-    subject             Subject              @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+    academicYear        AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    schoolClass         SchoolClass            @relation(fields: [classId], references: [id], onDelete: Restrict)
+    subject             Subject                @relation(fields: [subjectId], references: [id], onDelete: Restrict)
     teachingAssignments TeachingAssignment[]
-    studentChoices StudentSubjectChoice[]
+    studentChoices      StudentSubjectChoice[]
+    examSubjects        ExamSubject[]
+    creditHours         Decimal?               @map("credit_hours") @db.Decimal(4, 2)
 
     @@id([academicYearId, classId, subjectId])
     @@index([classId])

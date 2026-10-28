@@ -1,4 +1,5 @@
-import type { CurrentUser, Role } from "@/core/authorization/roles";
+import type { CurrentUser } from "@/core/authorization/roles";
+import type { ApiUser } from "@/core/authorization/roles";
 
 export type ApiErrorPayload = {
   code: string;
@@ -10,36 +11,23 @@ export type ApiErrorPayload = {
 export type AuthLoginRequest = {
   identifier: string;
   password: string;
-  role: Role;
 };
 
 export type AuthLoginResponse = {
+  accessToken: string;
+  expiresIn: number;
   user: CurrentUser;
-  session?: { expiresAt: string };
 };
 
-export type PasswordRecoveryRequest = {
-  identifier: string;
-  role: Role;
+export type BackendAuthSession = {
+  accessToken: string;
+  expiresIn: number;
+  user: ApiUser;
 };
 
-export type PasswordRecoveryResponse = {
-  accepted: boolean;
-};
-
-export type PasswordResetRequest = {
-  token: string;
-  password: string;
-  role: Role;
-};
-
-export type PasswordResetResponse = {
-  completed: boolean;
-};
-
-export type CurrentSessionResponse = {
-  user: CurrentUser;
-  expiresAt: string;
+export type ChangePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export type PaginatedResponse<T> = {

@@ -1,0 +1,252 @@
+enum ExamStatus {
+    DRAFT
+    OPEN
+    LOCKED
+    PUBLISHED
+}
+
+model GradeScale {
+    id        String   @id @default(uuid(7)) @db.Uuid
+    name      String   @unique
+    isDefault Boolean  @default(false) @map("is_default")
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    bands    GradeBand[]
+    policies ResultPolicy[]
+
+    @@map("grade_scales")
+}
+
+model GradeBand {
+    id           String  @id @default(uuid(7)) @db.Uuid
+    gradeScaleId String  @map("grade_scale_id") @db.Uuid
+    grade        String
+    minPercent   Decimal @map("min_percent") @db.Decimal(5, 2)
+    gradePoint   Decimal @map("grade_point") @db.Decimal(4, 2)
+    description  String
+    isPass       Boolean @map("is_pass")
+
+    gradeScale GradeScale @relation(fields: [gradeScaleId], references: [id], onDelete: Cascade)
+
+    @@unique([gradeScaleId, minPercent])
+    @@unique([gradeScaleId, grade])
+    @@map("grade_bands")
+}
+
+model Exam {
+    id             String     @id @default(uuid(7)) @db.Uuid
+    academicYearId String     @map("academic_year_id") @db.Uuid
+    termId         String?    @map("term_id") @db.Uuid
+    name           String
+    sequence       Int
+    isFinal        Boolean    @default(false) @map("is_final")
+    status         ExamStatus @default(DRAFT)
+    createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    term         Term?             @relation(fields: [termId], references: [id], onDelete: Restrict)
+    subjects     ExamSubject[]
+    components   ResultComponent[]
+    lockedAt     DateTime?         @map("locked_at") @db.Timestamptz(6)
+    publishedAt  DateTime?         @map("published_at") @db.Timestamptz(6)
+    markSheets   MarkSheet[]
+
+    @@unique([academicYearId, name])
+    @@unique([academicYearId, sequence])
+    @@unique([id, academicYearId])
+    @@map("exams")
+}
+
+model ExamSubject {
+    examId         String    @map("exam_id") @db.Uuid
+    academicYearId String    @map("academic_year_id") @db.Uuid
+    classId        String    @map("class_id") @db.Uuid
+    subjectId      String    @map("subject_id") @db.Uuid
+    fullTheory     Decimal   @map("full_theory") @db.Decimal(6, 2)
+    passTheory     Decimal   @map("pass_theory") @db.Decimal(6, 2)
+    fullPractical  Decimal?  @map("full_practical") @db.Decimal(6, 2)
+    passPractical  Decimal?  @map("pass_practical") @db.Decimal(6, 2)
+    examDate       DateTime? @map("exam_date") @db.Date
+
+    // The database guarantees the exam is in this year, and the class studies this subject in this year.
+    exam         Exam         @relation(fields: [examId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+    classSubject ClassSubject @relation(fields: [academicYearId, classId, subjectId], references: [academicYearId, classId, subjectId], onDelete: Restrict)
+    markSheets   MarkSheet[]
+
+    @@id([examId, classId, subjectId])
+    @@index([academicYearId, classId, subjectId])
+    @@map("exam_subjects")
+}
+
+model ResultPolicy {
+    id             String   @id @default(uuid(7)) @db.Uuid
+    academicYearId String   @map("academic_year_id") @db.Uuid
+    classId        String   @map("class_id") @db.Uuid
+    gradeScaleId   String   @map("grade_scale_id") @db.Uuid
+    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    schoolClass  SchoolClass       @relation(fields: [classId], references: [id], onDelete: Restrict)
+    gradeScale   GradeScale        @relation(fields: [gradeScaleId], references: [id], onDelete: Restrict)
+    components   ResultComponent[]
+
+    @@unique([academicYearId, classId])
+    @@unique([id, academicYearId])
+    @@index([gradeScaleId])
+    @@map("result_policies")
+}
+
+model ResultComponent {
+    policyId       String  @map("policy_id") @db.Uuid
+    academicYearId String  @map("academic_year_id") @db.Uuid
+    examId         String  @map("exam_id") @db.Uuid
+    weightPercent  Decimal @map("weight_percent") @db.Decimal(5, 2)
+
+    policy ResultPolicy @relation(fields: [policyId, academicYearId], references: [id, academicYearId], onDelete: Cascade)
+    exam   Exam         @relation(fields: [examId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+    @@id([policyId, examId])
+    @@index([examId])
+    @@map("result_components")
+}
+
+enum MarkSheetStatus {
+    DRAFT
+    SUBMITTED
+}
+
+model MarkSheet {
+    id             String          @id @default(uuid(7)) @db.Uuid
+    examId         String          @map("exam_id") @db.Uuid
+    academicYearId String          @map("academic_year_id") @db.Uuid
+    classId        String          @map("class_id") @db.Uuid
+    sectionId      String          @map("section_id") @db.Uuid
+    subjectId      String          @map("subject_id") @db.Uuid
+    status         MarkSheetStatus @default(DRAFT)
+    submittedById  String?         @map("submitted_by_id") @db.Uuid
+    submittedAt    DateTime?       @map("submitted_at") @db.Timestamptz(6)
+    createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    // The database guarantees: the exam is in this year, the exam covers this class and subject, the section belongs to the class.
+    exam        Exam        @relation(fields: [examId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+    examSubject ExamSubject @relation(fields: [examId, classId, subjectId], references: [examId, classId, subjectId], onDelete: Restrict)
+    section     Section     @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+    marks       Mark[]
+
+    @@unique([examId, sectionId, subjectId])
+    @@unique([id, academicYearId, classId])
+    @@map("mark_sheets")
+}
+
+model Mark {
+    sheetId        String   @map("sheet_id") @db.Uuid
+    academicYearId String   @map("academic_year_id") @db.Uuid
+    classId        String   @map("class_id") @db.Uuid
+    enrollmentId   String   @map("enrollment_id") @db.Uuid
+    theory         Decimal? @db.Decimal(6, 2)
+    practical      Decimal? @db.Decimal(6, 2)
+    absent         Boolean  @default(false)
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    // Sheet and enrollment must share the same year and class.
+    sheet      MarkSheet  @relation(fields: [sheetId, academicYearId, classId], references: [id, academicYearId, classId], onDelete: Restrict)
+    enrollment Enrollment @relation(fields: [enrollmentId, academicYearId, classId], references: [id, academicYearId, classId], onDelete: Restrict)
+
+    @@id([sheetId, enrollmentId])
+    @@index([enrollmentId])
+    @@map("marks")
+}
+
+// Append-only ledger of changes to submitted marks. No foreign keys on purpose: history outlives what it describes.
+model MarkChange {
+    id            String     @id @default(uuid(7)) @db.Uuid
+    sheetId       String     @map("sheet_id") @db.Uuid
+    examId        String     @map("exam_id") @db.Uuid
+    subjectId     String     @map("subject_id") @db.Uuid
+    enrollmentId  String     @map("enrollment_id") @db.Uuid
+    fromTheory    Decimal?   @map("from_theory") @db.Decimal(6, 2)
+    fromPractical Decimal?   @map("from_practical") @db.Decimal(6, 2)
+    fromAbsent    Boolean?   @map("from_absent") // null: there was no row before
+    toTheory      Decimal?   @map("to_theory") @db.Decimal(6, 2)
+    toPractical   Decimal?   @map("to_practical") @db.Decimal(6, 2)
+    toAbsent      Boolean    @map("to_absent")
+    reason        String
+    examStatus    ExamStatus @map("exam_status")
+    changedById   String     @map("changed_by_id") @db.Uuid
+    changedAt     DateTime   @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+    @@index([examId, changedAt(sort: Desc)])
+    @@index([enrollmentId, changedAt(sort: Desc)])
+    @@map("mark_changes")
+}
+
+enum ResultStatus {
+    PASS
+    FAIL
+    INCOMPLETE
+}
+
+// Immutable snapshots. No foreign keys on purpose (like audit_logs): published results outlive what they describe.
+model ResultRun {
+    id             String      @id @default(uuid(7)) @db.Uuid
+    academicYearId String      @map("academic_year_id") @db.Uuid
+    classId        String      @map("class_id") @db.Uuid
+    /// "POLICY" for the combined result, or "EXAM:<examId>" for a single exam.
+    scopeKey       String      @map("scope_key")
+    examId         String?     @map("exam_id") @db.Uuid
+    version        Int
+    revised        Boolean     @default(false)
+    reason         String?
+    createdById    String      @map("created_by_id") @db.Uuid
+    createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+    gradeScale     Json        @map("grade_scale")
+    components     Json
+    warnings       Json
+    rows           ResultRow[]
+
+    @@unique([academicYearId, classId, scopeKey, version])
+    @@index([academicYearId, classId, scopeKey])
+    @@map("result_runs")
+}
+
+model ResultRow {
+    runId        String       @map("run_id") @db.Uuid
+    enrollmentId String       @map("enrollment_id") @db.Uuid
+    sectionId    String       @map("section_id") @db.Uuid
+    status       ResultStatus
+    totalMarks   Decimal?     @map("total_marks") @db.Decimal(10, 2)
+    totalFull    Decimal?     @map("total_full") @db.Decimal(10, 2)
+    percentage   Decimal?     @db.Decimal(5, 2)
+    gpa          Decimal?     @db.Decimal(4, 2)
+    sectionRank  Int?         @map("section_rank")
+    classRank    Int?         @map("class_rank")
+    payload      Json
+
+    run ResultRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+    @@id([runId, enrollmentId])
+    @@index([enrollmentId])
+    @@map("result_rows")
+}
+
+model ReportRemark {
+    id             String   @id @default(uuid(7)) @db.Uuid
+    academicYearId String   @map("academic_year_id") @db.Uuid
+    enrollmentId   String   @map("enrollment_id") @db.Uuid
+    /// "POLICY" for the combined card, or "EXAM:<examId>" for one exam's card.
+    scopeKey       String   @map("scope_key")
+    remark         String
+    updatedById    String   @map("updated_by_id") @db.Uuid
+    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    enrollment Enrollment @relation(fields: [enrollmentId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+    @@unique([enrollmentId, scopeKey])
+    @@index([academicYearId, scopeKey])
+    @@map("report_remarks")
+}

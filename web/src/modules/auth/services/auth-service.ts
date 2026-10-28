@@ -1,113 +1,89 @@
 import type {
   AuthLoginRequest,
   AuthLoginResponse,
-  PasswordRecoveryRequest,
-  PasswordRecoveryResponse,
-  PasswordResetRequest,
+  ChangePasswordRequest,
 } from "@/lib/api/contracts";
-import { createApiClient } from "@/lib/api/client";
 import {
-  validateIdentifier,
-  validateLoginPassword,
-  validateNewPassword,
-} from "@/modules/auth/validation";
+  refreshApiSession,
+  setApiAccessToken,
+} from "@/lib/api/client";
+import type { CurrentUser } from "@/core/authorization/roles";
 
 export type LoginInput = AuthLoginRequest;
+export type LoginResult = AuthLoginResponse;
 
-export type LoginResult = AuthLoginResponse & {
-  mode: "mock" | "api";
-};
-
-export type PasswordRecoveryInput = PasswordRecoveryRequest;
-
-export type PasswordRecoveryResult = PasswordRecoveryResponse & {
-  mode: "mock" | "api";
-};
-
-export type PasswordResetInput = PasswordResetRequest;
-
-const authMode = process.env.NEXT_PUBLIC_AUTH_MODE === "api" ? "api" : "mock";
-
-function assertLoginInput({ identifier, password }: LoginInput) {
-  const identifierError = validateIdentifier(identifier);
-  if (identifierError) throw new Error(identifierError);
-  const passwordError = validateLoginPassword(password);
-  if (passwordError) throw new Error(passwordError);
-}
-
-function assertRecoveryInput({ identifier }: PasswordRecoveryInput) {
-  const identifierError = validateIdentifier(identifier);
-  if (identifierError) throw new Error(identifierError);
-}
-
-function assertResetInput({ token, password }: PasswordResetInput) {
-  const passwordError = validateNewPassword(password);
-  if (!token || passwordError) {
-    throw new Error(passwordError ?? "The reset link is invalid or expired.");
-  }
-}
-
-async function mockLogin(input: LoginInput): Promise<LoginResult> {
-  assertLoginInput(input);
-  await new Promise((resolve) => setTimeout(resolve, 450));
-
-  return {
-    mode: "mock",
-    user: {
-      id: `demo-${input.role}`,
-      displayName: input.identifier,
-      role: input.role,
-      schoolId: "demo-school",
+async function authRequest<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      ...init.headers,
     },
-  };
-}
-
-async function mockPasswordRecovery(
-  input: PasswordRecoveryInput,
-): Promise<PasswordRecoveryResult> {
-  assertRecoveryInput(input);
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  return { accepted: true, mode: "mock" };
-}
-
-async function mockPasswordReset(input: PasswordResetInput) {
-  assertResetInput(input);
-  await new Promise((resolve) => setTimeout(resolve, 450));
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) {
+    const nestedError =
+      payload &&
+      typeof payload === "object" &&
+      "error" in payload &&
+      payload.error &&
+      typeof payload.error === "object" &&
+      "message" in payload.error
+        ? payload.error.message
+        : undefined;
+    const message =
+      typeof nestedError === "string"
+        ? nestedError
+        : Array.isArray(nestedError)
+          ? nestedError.join(", ")
+          : `Authentication request failed: ${response.status}`;
+    throw new Error(message);
+  }
+  return payload as T;
 }
 
 export async function signIn(input: LoginInput): Promise<LoginResult> {
-  if (authMode === "mock") return mockLogin(input);
-
-  const response = await createApiClient().post<AuthLoginResponse>(
-    "/auth/login",
-    input,
-  );
-  return { mode: "api", user: response.user };
+  const result = await authRequest<LoginResult>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  setApiAccessToken(result.accessToken);
+  return result;
 }
 
-/** Development-only bridge so mock sign-in uses the same HttpOnly cookie path as production. */
-export async function establishMockSession(user: AuthLoginResponse["user"]) {
-  if (typeof window === "undefined" || authMode !== "mock") return;
-  await createApiClient("").post("/api/auth/mock-session", { user });
-}
-
-export async function requestPasswordReset(
-  input: PasswordRecoveryInput,
-): Promise<PasswordRecoveryResult> {
-  if (authMode === "mock") return mockPasswordRecovery(input);
-
-  await createApiClient().post<PasswordRecoveryResponse>(
-    "/auth/forgot-password",
-    input,
-  );
-  return { accepted: true, mode: "api" };
-}
-
-export async function resetPassword(input: PasswordResetInput): Promise<void> {
-  if (authMode === "mock") {
-    await mockPasswordReset(input);
-    return;
+export async function refreshSession(): Promise<LoginResult> {
+  const result = await refreshApiSession();
+  if (!result) {
+    throw new Error("Your session has expired. Sign in again.");
   }
+  return result;
+}
 
-  await createApiClient().post("/auth/reset-password", input);
+export async function getAuthenticatedUser(): Promise<CurrentUser> {
+  const result = await authRequest<{ user: CurrentUser }>("/api/auth/me");
+  return result.user;
+}
+
+export async function changePassword(
+  input: ChangePasswordRequest,
+): Promise<void> {
+  await authRequest<{ passwordChanged: true }>("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  setApiAccessToken(null);
+}
+
+export async function signOut(): Promise<void> {
+  try {
+    await authRequest<{ loggedOut: true }>("/api/auth/logout", {
+      method: "POST",
+    });
+  } finally {
+    setApiAccessToken(null);
+  }
 }

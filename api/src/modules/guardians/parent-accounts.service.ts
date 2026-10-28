@@ -18,6 +18,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit-logs/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
 import { UsersService } from '../users/users.service.js';
+import { SchoolService } from '../school/school.service.js';
 
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
 
@@ -67,17 +68,13 @@ const GUARDIAN_SELECT = {
 
 @Injectable()
 export class ParentAccountsService {
-  private readonly school: string;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly messaging: MessagingService,
     private readonly users: UsersService,
-    config: ConfigService,
-  ) {
-    this.school = config.getOrThrow<string>('SCHOOL_NAME');
-  }
+    private readonly school: SchoolService,
+  ) {}
 
   /** Creates the guardian's login (once) and sends the credentials. Never exposes the password unless delivery failed. */
   async provision(
@@ -250,10 +247,11 @@ export class ParentAccountsService {
     account: CreatedAccount,
     childName: string | null,
   ): Promise<Omit<LoginOutcome, 'guardianId'>> {
+    const schoolName = await this.school.displayName();
     const channel = guardian.phone ? 'sms' : 'email';
     const expires = dateParts(account.expiresAt);
     const text =
-      `${this.school}: Parent account${childName ? ` for ${childName}` : ''}. ` +
+      `${schoolName}: Parent account${childName ? ` for ${childName}` : ''}. ` +
       `Login: ${account.identifier} Temporary password: ${account.temporaryPassword} ` +
       `(change it at first login; valid until ${expires.bs ?? expires.ad}).`;
 
@@ -261,7 +259,7 @@ export class ParentAccountsService {
       ? await this.messaging.sendSms(guardian.phone, text)
       : await this.messaging.sendEmail(
           guardian.email as string,
-          `${this.school}: your parent account`,
+          `${schoolName}: your parent account`,
           text,
         );
 
