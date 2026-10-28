@@ -211,14 +211,16 @@ model Enrollment {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  student           Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  academicYear      AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student            Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear       AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
   // The database guarantees the section belongs to the class.
-  section           Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
-  subjectChoices    StudentSubjectChoice[]
-  attendanceRecords AttendanceRecord[]
-  marks             Mark[]
-  remarks           ReportRemark[]
+  section            Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  subjectChoices     StudentSubjectChoice[]
+  attendanceRecords  AttendanceRecord[]
+  marks              Mark[]
+  remarks            ReportRemark[]
+  promotionDecisions PromotionDecision[]    @relation("DecisionOld")
+  promotionResult    PromotionDecision?     @relation("DecisionNew")
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])

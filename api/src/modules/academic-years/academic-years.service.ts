@@ -373,6 +373,7 @@ export class AcademicYearsService {
         sessions,
         exams,
         resultPolicies,
+        promotionRun,
       ] = await Promise.all([
         tx.term.count({ where: { academicYearId: id } }),
         tx.classSubject.count({ where: { academicYearId: id } }),
@@ -382,6 +383,9 @@ export class AcademicYearsService {
         tx.attendanceSession.count({ where: { academicYearId: id } }),
         tx.exam.count({ where: { academicYearId: id } }),
         tx.resultPolicy.count({ where: { academicYearId: id } }),
+        tx.promotionRun.count({
+          where: { OR: [{ fromYearId: id }, { toYearId: id }] },
+        }),
       ]);
       if (
         terms +
@@ -391,11 +395,12 @@ export class AcademicYearsService {
           calendar +
           sessions +
           exams +
-          resultPolicies >
+          resultPolicies +
+          promotionRun >
         0
       ) {
         throw new ConflictException(
-          "Remove this academic year's terms, curriculum, teacher assignments, enrollments, calendar, exams and result policies first",
+          "Remove this academic year's terms, curriculum, teacher assignments, enrollments, calendar, exams , result policies or promotion runs first",
         );
       }
       await tx.academicYear.delete({ where: { id } });
