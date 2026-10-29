@@ -25,6 +25,8 @@ model AcademicYear {
     attendanceSessions       AttendanceSession[]
     exams                    Exam[]
     resultPolicies           ResultPolicy[]
+    promotionsFrom           PromotionRun[]      @relation("PromotionFrom")
+    promotionsTo             PromotionRun[]      @relation("PromotionTo")
 
     @@map("academic_years")
 }
@@ -55,9 +57,13 @@ model SchoolClass {
     createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    sections       Section[]
-    classSubjects  ClassSubject[]
-    resultPolicies ResultPolicy[]
+    sections         Section[]
+    classSubjects    ClassSubject[]
+    resultPolicies   ResultPolicy[]
+    nextClassId      String?             @map("next_class_id") @db.Uuid
+    nextClass        SchoolClass?        @relation("ClassProgression", fields: [nextClassId], references: [id], onDelete: Restrict)
+    previousClasses  SchoolClass[]       @relation("ClassProgression")
+    promotionTargets PromotionDecision[] @relation("DecisionToClass")
 
     @@index([sortOrder])
     @@map("classes")
@@ -79,6 +85,7 @@ model Section {
     enrollments             Enrollment[]
     attendanceSessions      AttendanceSession[]
     markSheets              MarkSheet[]
+    promotionTargets        PromotionDecision[]
 
     @@unique([id, classId])
     @@unique([classId, name])

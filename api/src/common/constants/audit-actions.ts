@@ -108,5 +108,11 @@ export const AUDIT_ACTIONS = [
 
   'remarks.saved',
   'reportcards.printed',
+
+  'promotion.proposed',
+  'promotion.decision_changed',
+  'promotion.applied',
+  'promotion.rolls_assigned',
+  'promotion.undone',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
