@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   dateParts,
@@ -20,6 +21,7 @@ import type { CreateAcademicYearDto } from './dto/create-academic-year.dto.js';
 import type { CreateTermDto } from './dto/create-term.dto.js';
 import type { UpdateAcademicYearDto } from './dto/update-academic-year.dto.js';
 import type { UpdateTermDto } from './dto/update-term.dto.js';
+import { CloseYearDto } from './dto/close-year.dto.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -326,7 +328,11 @@ export class AcademicYearsService {
     }
   }
 
-  async close(id: string, actor: AuthUser): Promise<AcademicYearResponse> {
+  async close(
+    id: string,
+    dto: CloseYearDto,
+    actor: AuthUser,
+  ): Promise<AcademicYearResponse> {
     try {
       const row = await this.prisma.$transaction(async (tx) => {
         await this.lockYearRow(tx, id);
@@ -336,6 +342,30 @@ export class AcademicYearsService {
             `Only an active academic year can be closed (this one is ${year.status.toLowerCase()})`,
           );
         }
+
+        // A student still ENROLLED has not been moved on by a promotion plan.
+        const unplaced = await tx.enrollment.count({
+          where: { academicYearId: id, status: 'ENROLLED' },
+        });
+        let acknowledged = false;
+        if (unplaced > 0) {
+          if (!dto.acknowledgeUnplaced) {
+            throw new ConflictException(
+              `${unplaced} student(s) are still enrolled in this year and have not been moved on. Apply the promotion plan, or have the principal acknowledge them with a reason.`,
+            );
+          }
+          if (!actor.permissions.includes('promotion:apply')) {
+            throw new ForbiddenException(
+              'Only someone who may apply promotions can acknowledge unplaced students',
+            );
+          }
+          if (!dto.reason)
+            throw new BadRequestException(
+              'Give a reason (at least 10 characters) for closing with unplaced students',
+            );
+          acknowledged = true;
+        }
+
         const updated = await tx.academicYear.update({
           where: { id },
           data: { status: 'CLOSED' },
@@ -346,7 +376,12 @@ export class AcademicYearsService {
           action: 'academic-year.closed',
           entityType: 'academic_year',
           entityId: id,
-          details: { name: year.name },
+          details: {
+            name: year.name,
+            unplaced,
+            acknowledged,
+            ...(acknowledged ? { reason: dto.reason } : {}),
+          },
         });
         return updated;
       }, TX);
@@ -354,6 +389,100 @@ export class AcademicYearsService {
     } catch (error) {
       return this.mapConflict(error);
     }
+  }
+
+  /** What should be finished before this year is closed. */
+  async closingChecklist(id: string) {
+    const year = await this.prisma.academicYear.findUnique({
+      where: { id },
+      select: { id: true, name: true, status: true },
+    });
+    if (!year) throw new NotFoundException('Academic year not found');
+
+    const [byClass, exams, runs] = await Promise.all([
+      this.prisma.enrollment.groupBy({
+        by: ['classId'],
+        where: { academicYearId: id, status: 'ENROLLED' },
+        _count: { _all: true },
+      }),
+      this.prisma.exam.findMany({
+        where: { academicYearId: id },
+        orderBy: { sequence: 'asc' },
+        select: { id: true, name: true, status: true },
+      }),
+      this.prisma.promotionRun.findMany({
+        where: { fromYearId: id },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          toYear: { select: { id: true, name: true } },
+        },
+      }),
+    ]);
+    const runIds = runs.map((r) => r.id);
+    const [classes, applied, total] = await Promise.all([
+      this.prisma.schoolClass.findMany({
+        where: { id: { in: byClass.map((b) => b.classId) } },
+        select: { id: true, name: true, sortOrder: true },
+      }),
+      this.prisma.promotionDecision.groupBy({
+        by: ['runId'],
+        where: { runId: { in: runIds }, appliedAt: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.promotionDecision.groupBy({
+        by: ['runId'],
+        where: { runId: { in: runIds } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const classBy = new Map(classes.map((c) => [c.id, c] as const));
+    const appliedBy = new Map(
+      applied.map((a) => [a.runId, a._count._all] as const),
+    );
+    const totalBy = new Map(
+      total.map((t) => [t.runId, t._count._all] as const),
+    );
+    const enrolled = byClass.reduce((n, b) => n + b._count._all, 0);
+    const unpublished = exams.filter((e) => e.status !== 'PUBLISHED');
+
+    const warnings: string[] = [];
+    if (enrolled > 0)
+      warnings.push(
+        `${enrolled} student(s) are still enrolled and have not been moved on.`,
+      );
+    if (unpublished.length > 0)
+      warnings.push(`${unpublished.length} exam(s) are not published yet.`);
+    return {
+      academicYearId: id,
+      name: year.name,
+      status: year.status,
+      canClose: year.status === 'ACTIVE',
+      enrolledStudents: enrolled,
+      byClass: byClass
+        .map((b) => ({
+          classId: b.classId,
+          className: classBy.get(b.classId)?.name ?? b.classId,
+          sortOrder: classBy.get(b.classId)?.sortOrder ?? 0,
+          enrolled: b._count._all,
+        }))
+        .sort(
+          (a, b) =>
+            a.sortOrder - b.sortOrder || a.className.localeCompare(b.className),
+        ),
+      exams: { total: exams.length, unpublished },
+      promotion: runs.map((r) => ({
+        toYear: r.toYear,
+        status: r.status,
+        applied: appliedBy.get(r.id) ?? 0,
+        total: totalBy.get(r.id) ?? 0,
+        pending: (totalBy.get(r.id) ?? 0) - (appliedBy.get(r.id) ?? 0),
+      })),
+      ready: enrolled === 0,
+      warnings,
+    };
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
@@ -373,6 +502,7 @@ export class AcademicYearsService {
         sessions,
         exams,
         resultPolicies,
+        promotionRun,
       ] = await Promise.all([
         tx.term.count({ where: { academicYearId: id } }),
         tx.classSubject.count({ where: { academicYearId: id } }),
@@ -382,6 +512,9 @@ export class AcademicYearsService {
         tx.attendanceSession.count({ where: { academicYearId: id } }),
         tx.exam.count({ where: { academicYearId: id } }),
         tx.resultPolicy.count({ where: { academicYearId: id } }),
+        tx.promotionRun.count({
+          where: { OR: [{ fromYearId: id }, { toYearId: id }] },
+        }),
       ]);
       if (
         terms +
@@ -391,11 +524,12 @@ export class AcademicYearsService {
           calendar +
           sessions +
           exams +
-          resultPolicies >
+          resultPolicies +
+          promotionRun >
         0
       ) {
         throw new ConflictException(
-          "Remove this academic year's terms, curriculum, teacher assignments, enrollments, calendar, exams and result policies first",
+          "Remove this academic year's terms, curriculum, teacher assignments, enrollments, calendar, exams , result policies or promotion runs first",
         );
       }
       await tx.academicYear.delete({ where: { id } });

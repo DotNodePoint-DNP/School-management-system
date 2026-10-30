@@ -70,5 +70,17 @@ export const PERMISSIONS = [
   'results:preview',
   'results:read',
   'results:read-all',
+
+  'school:manage',
+  'school:manage-signatories',
+
+  'remarks:enter',
+  'remarks:enter-any',
+  'reportcards:print',
+  'reportcards:print-signed',
+
+  'promotion:read',
+  'promotion:manage',
+  'promotion:apply',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

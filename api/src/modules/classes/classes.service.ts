@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -30,6 +31,8 @@ const CLASS_SELECT = {
   sortOrder: true,
   isActive: true,
   sections: { orderBy: { name: 'asc' }, select: SECTION_SELECT },
+  nextClassId: true,
+  nextClass: { select: { id: true, name: true } },
 } satisfies Prisma.SchoolClassSelect;
 
 export type SectionResponse = Prisma.SectionGetPayload<{
@@ -104,10 +107,13 @@ export class ClassesService {
       if (dto.name !== undefined)
         await this.assertClassNameFree(tx, dto.name, id);
 
-      const data: Prisma.SchoolClassUpdateInput = {};
+      if (dto.nextClassId !== undefined)
+        await this.assertNextClass(tx, id, dto.nextClassId);
+      const data: Prisma.SchoolClassUncheckedUpdateInput = {};
       if (dto.name !== undefined) data.name = dto.name;
       if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
       if (dto.isActive !== undefined) data.isActive = dto.isActive;
+      if (dto.nextClassId !== undefined) data.nextClassId = dto.nextClassId;
       const updated = await tx.schoolClass.update({
         where: { id },
         data,
@@ -133,12 +139,19 @@ export class ClassesService {
         where: { id },
         select: { name: true },
       });
-      const [sections, curriculum, resultPolicies] = await Promise.all([
-        tx.section.count({ where: { classId: id } }),
-        tx.classSubject.count({ where: { classId: id } }),
-        tx.resultPolicy.count({ where: { classId: id } }),
-      ]);
-      if (sections > 0 || curriculum > 0 || resultPolicies > 0) {
+      const [sections, curriculum, resultPolicies, nextClasses] =
+        await Promise.all([
+          tx.section.count({ where: { classId: id } }),
+          tx.classSubject.count({ where: { classId: id } }),
+          tx.resultPolicy.count({ where: { classId: id } }),
+          tx.schoolClass.count({ where: { nextClassId: id } }),
+        ]);
+      if (
+        sections > 0 ||
+        curriculum > 0 ||
+        resultPolicies > 0 ||
+        nextClasses > 0
+      ) {
         throw new ConflictException(
           'This class has sections ,curriculum records or result policies. Deactivate it instead of deleting it.',
         );
@@ -153,6 +166,32 @@ export class ClassesService {
       entityId: id,
       details: { name },
     });
+  }
+
+  /** No self-reference and no loops. The advisory lock keeps two concurrent edits from creating a loop together. */
+  private async assertNextClass(
+    tx: Tx,
+    id: string,
+    nextId: string | null,
+  ): Promise<void> {
+    if (nextId === null) return;
+    if (nextId === id)
+      throw new BadRequestException('A class cannot be its own next class');
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('class_chain'))`;
+    let cursor: string | null = nextId;
+    for (let hops = 0; cursor !== null && hops < 100; hops++) {
+      const row: { nextClassId: string | null } | null =
+        await tx.schoolClass.findUnique({
+          where: { id: cursor },
+          select: { nextClassId: true },
+        });
+      if (!row) throw new BadRequestException('That next class does not exist');
+      if (row.nextClassId === id)
+        throw new BadRequestException(
+          'This would make the class order loop back on itself',
+        );
+      cursor = row.nextClassId;
+    }
   }
 
   async createSection(
@@ -240,13 +279,14 @@ export class ClassesService {
     });
     if (!section) throw new NotFoundException('Section not found');
 
-    const [enrolments, classTeachers, teachers, sessions ,markSheet] = await Promise.all([
-      this.prisma.enrollment.count({ where: { sectionId } }),
-      this.prisma.classTeacherAssignment.count({ where: { sectionId } }),
-      this.prisma.teachingAssignment.count({ where: { sectionId } }),
-      this.prisma.attendanceSession.count({ where: { sectionId } }),
-      this.prisma.markSheet.count({ where: { sectionId } })
-    ]);
+    const [enrolments, classTeachers, teachers, sessions, markSheet] =
+      await Promise.all([
+        this.prisma.enrollment.count({ where: { sectionId } }),
+        this.prisma.classTeacherAssignment.count({ where: { sectionId } }),
+        this.prisma.teachingAssignment.count({ where: { sectionId } }),
+        this.prisma.attendanceSession.count({ where: { sectionId } }),
+        this.prisma.markSheet.count({ where: { sectionId } }),
+      ]);
 
     if (enrolments + classTeachers + teachers + sessions + markSheet > 0) {
       throw new ConflictException(

@@ -69,6 +69,7 @@ export interface RollListItem {
   name: string;
   fullNameNp: string | null;
   rollNo: number | null;
+  status: string;
 }
 
 export interface OccupancyItem {
@@ -463,6 +464,26 @@ export class EnrollmentsService {
         throw new ConflictException(
           'This enrollment has exam marks. Withdraw the student instead of deleting the enrollment.',
         );
+
+      const remarks = await tx.reportRemark.count({ where: { enrollmentId } });
+      if (remarks > 0)
+        throw new ConflictException(
+          'This enrollment has report remarks. Withdraw the student instead of deleting the enrollment.',
+        );
+
+      const moved = await tx.promotionDecision.count({
+        where: {
+          OR: [
+            { enrollmentId, appliedAt: { not: null } },
+            { newEnrollmentId: enrollmentId },
+          ],
+        },
+      });
+      if (moved > 0)
+        throw new ConflictException(
+          'This enrollment is part of an applied promotion. Use "undo" on the promotion plan instead.',
+        );
+      await tx.promotionDecision.deleteMany({ where: { enrollmentId } }); // an unapplied plan row for a deleted enrollment
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {
         studentId: current.studentId,
@@ -566,7 +587,11 @@ export class EnrollmentsService {
     sectionId: string,
   ): Promise<RollListItem[]> {
     const rows = await this.prisma.enrollment.findMany({
-      where: { academicYearId: yearId, sectionId, status: 'ENROLLED' },
+      where: {
+        academicYearId: yearId,
+        sectionId,
+        status: { in: ['ENROLLED', 'COMPLETED'] },
+      },
       orderBy: [
         { rollNo: { sort: 'asc', nulls: 'last' } },
         { student: { lastName: 'asc' } },
@@ -575,6 +600,7 @@ export class EnrollmentsService {
       select: {
         id: true,
         rollNo: true,
+        status: true,
         student: {
           select: {
             id: true,
@@ -594,11 +620,12 @@ export class EnrollmentsService {
       name: displayName(r.student),
       fullNameNp: r.student.fullNameNp,
       rollNo: r.rollNo,
+      status: r.status,
     }));
   }
 
   /** Exclusive row lock: serialises seat checks and roll-number picks for this section. */
-  private async lockSection(tx: Tx, sectionId: string): Promise<LockedSection> {
+  async lockSection(tx: Tx, sectionId: string): Promise<LockedSection> {
     const rows = await tx.$queryRaw<LockedSection[]>`
       SELECT id, class_id AS "classId", is_active AS "isActive", capacity
       FROM sections WHERE id = ${sectionId}::uuid FOR UPDATE`;
