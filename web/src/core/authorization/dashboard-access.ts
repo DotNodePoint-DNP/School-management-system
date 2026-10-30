@@ -22,12 +22,16 @@ const MODULE_PERMISSIONS: Record<string, readonly string[]> = {
     "attendance:read-all",
     "attendance:mark",
     "attendance:mark-any",
+    "attendance:correct",
+    "attendance:calendar-manage",
   ],
   attendance: [
     "attendance:read",
     "attendance:read-all",
     "attendance:mark",
     "attendance:mark-any",
+    "attendance:correct",
+    "attendance:calendar-manage",
   ],
   staff: ["staff:read"],
   "Examination-Gradebook": [

@@ -1,12 +1,13 @@
-import ExamTermSetup from '@/modules/examination-gradebook/exam-setup/ExamTermSetup'
-import React from 'react'
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/core/session/server";
+import ExamSetupWorkspace from "@/modules/examination-gradebook/ExamSetupWorkspace";
 
-const examsetup = () => {
+export default async function ExamSetupPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth");
+  if (!user.permissions.includes("exams:read")) notFound();
+
   return (
-    <div>
-      <ExamTermSetup />
-    </div>
-  )
+    <ExamSetupWorkspace canManage={user.permissions.includes("exams:manage")} />
+  );
 }
-
-export default examsetup

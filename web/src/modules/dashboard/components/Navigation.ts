@@ -94,14 +94,15 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
    {
-    slug: "Attendance ",
+    slug: "attendance",
     label: "Attendance Management",
     icon: "calandarFold",
     sections: [
-      { slug: "school-profile", label: "School profile", icon: "userCog" },
-      { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
-      { slug: "roles-permissions", label: "Roles & permissions", icon: "UserShield" },
-      { slug: "integrations", label: "Integrations", icon: "book" },
+      { slug: "daily-attendance", label: "Daily attendance", icon: "calandarFold" },
+      { slug: "reports", label: "Attendance reports", icon: "book" },
+      { slug: "pending", label: "Pending sections", icon: "userCog" },
+      { slug: "corrections", label: "Correction history", icon: "UserShield" },
+      { slug: "calendar", label: "School calendar", icon: "calandarFold" },
     ],
   },
    {
