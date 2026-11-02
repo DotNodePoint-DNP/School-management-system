@@ -1,14 +1,15 @@
-import { AdmissionDashboardActions } from '@/modules/admissions/components/AdmissionDashboardActions'
-import StudentAdmissionEngine from '@/modules/admissions/components/SchoolAdmissionFormPrint'
-import React from 'react'
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/core/session/server";
+import AdmissionIntakeWorkspace from "@/modules/admissions/AdmissionIntakeWorkspace";
 
-const Admission = () => {
+export default async function AdmissionFormPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth");
+  if (!user.permissions.includes("students:create")) notFound();
+
   return (
-    <div>
-        {/* <AdmissionDashboardActions /> */}
-        <StudentAdmissionEngine/>
-    </div>
-  )
+    <AdmissionIntakeWorkspace
+      canManageEnrollments={user.permissions.includes("enrollments:manage")}
+    />
+  );
 }
-
-export default Admission

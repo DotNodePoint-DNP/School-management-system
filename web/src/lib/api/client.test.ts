@@ -32,6 +32,101 @@ describe("shared API client", () => {
     );
   });
 
+  it("normalizes paginated API envelopes without dropping metadata", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [{ id: "student-1" }],
+            meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getPaginated<{ id: string }>("/students"),
+    ).resolves.toEqual({
+      items: [{ id: "student-1" }],
+      meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+    });
+  });
+
+  it("rejects malformed paginated API responses explicitly", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ success: true, data: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(
+      createApiClient().getPaginated("/students"),
+    ).rejects.toThrow("The API returned an invalid paginated response.");
+  });
+
+  it("normalizes cursor-paginated responses for audit logs", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [{ id: "audit-1" }],
+            meta: { limit: 50, nextCursor: "cursor-2" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getCursorPaginated<{ id: string }>("/audit-logs"),
+    ).resolves.toEqual({
+      items: [{ id: "audit-1" }],
+      meta: { limit: 50, nextCursor: "cursor-2" },
+    });
+  });
+
+  it("rejects malformed cursor-paginated API responses", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [],
+            meta: { limit: 50 },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getCursorPaginated("/audit-logs"),
+    ).rejects.toThrow("The API returned an invalid cursor-paginated response.");
+  });
+
   it("refreshes an expired access token once and retries the request", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
     vi.stubGlobal("window", {});

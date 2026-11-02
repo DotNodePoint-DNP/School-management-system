@@ -63,8 +63,36 @@ export type UpdateSchoolProfileInput = Partial<
 
 export type SchoolAssetKind = "logo" | "seal";
 
+export interface SchoolProfileHistoryEntry {
+  version: number;
+  changedAt: string;
+  changedByName: string | null;
+}
+
+export interface SchoolProfileSnapshot {
+  version: number;
+  changedAt: string;
+  profile: SchoolProfile;
+}
+
 export async function getSchoolProfile(): Promise<SchoolProfile> {
   return createApiClient().get<SchoolProfile>("/school/profile");
+}
+
+export async function listSchoolProfileHistory(): Promise<
+  SchoolProfileHistoryEntry[]
+> {
+  return createApiClient().get<SchoolProfileHistoryEntry[]>(
+    "/school/profile/history",
+  );
+}
+
+export async function getSchoolProfileVersion(
+  version: number,
+): Promise<SchoolProfileSnapshot> {
+  return createApiClient().get<SchoolProfileSnapshot>(
+    `/school/profile/history/${version}`,
+  );
 }
 
 export async function updateSchoolProfile(

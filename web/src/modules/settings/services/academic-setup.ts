@@ -29,6 +29,33 @@ export interface AcademicYearInput {
 
 export type AcademicYearUpdateInput = Partial<AcademicYearInput>;
 
+export interface AcademicYearClosingChecklist {
+  academicYearId: string;
+  name: string;
+  status: AcademicYear["status"];
+  canClose: boolean;
+  enrolledStudents: number;
+  byClass: {
+    classId: string;
+    className: string;
+    sortOrder: number;
+    enrolled: number;
+  }[];
+  exams: {
+    total: number;
+    unpublished: { id: string; name: string; status: string }[];
+  };
+  promotion: {
+    toYear: { id: string; name: string };
+    status: string;
+    applied: number;
+    total: number;
+    pending: number;
+  }[];
+  ready: boolean;
+  warnings: string[];
+}
+
 export interface AcademicTermInput {
   name: string;
   sequence: number;
@@ -94,6 +121,51 @@ export async function updateAcademicYear(
   return createApiClient().patch<AcademicYear>(
     `/academic-years/${encodeURIComponent(id)}`,
     input,
+  );
+}
+
+export async function getAcademicYear(
+  id: string,
+): Promise<AcademicYear> {
+  return createApiClient().get<AcademicYear>(
+    `/academic-years/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function adjustAcademicYearDates(
+  id: string,
+  input: { startDate: string; endDate: string; reason: string },
+): Promise<AcademicYear> {
+  return createApiClient().post<AcademicYear>(
+    `/academic-years/${encodeURIComponent(id)}/adjust-dates`,
+    input,
+  );
+}
+
+export async function activateAcademicYear(
+  id: string,
+): Promise<AcademicYear> {
+  return createApiClient().post<AcademicYear>(
+    `/academic-years/${encodeURIComponent(id)}/activate`,
+    {},
+  );
+}
+
+export async function closeAcademicYear(
+  id: string,
+  input: { acknowledgeUnplaced?: boolean; reason?: string },
+): Promise<AcademicYear> {
+  return createApiClient().post<AcademicYear>(
+    `/academic-years/${encodeURIComponent(id)}/close`,
+    input,
+  );
+}
+
+export async function getAcademicYearClosingChecklist(
+  id: string,
+): Promise<AcademicYearClosingChecklist> {
+  return createApiClient().get<AcademicYearClosingChecklist>(
+    `/academic-years/${encodeURIComponent(id)}/closing-checklist`,
   );
 }
 

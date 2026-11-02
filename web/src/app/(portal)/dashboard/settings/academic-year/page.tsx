@@ -12,7 +12,11 @@ export default async function SchoolProfilePage() {
   if (!navModule) notFound();
   return (
     <>
-      <AcademicYearManager canManage={user.permissions.includes("academic-years:manage")} />
+      <AcademicYearManager
+        canManage={user.permissions.includes("academic-years:manage")}
+        canAdjustDates={user.permissions.includes("academic-years:adjust-dates")}
+        canAcknowledgeUnplaced={user.permissions.includes("promotion:apply")}
+      />
     </>
   );
 }

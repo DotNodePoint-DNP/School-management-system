@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/core/session/server";
 import { PageHeader } from "@/modules/dashboard/components/PageHeader";
 import { findModule, moduleHref } from "@/modules/dashboard/components/Navigation";
 import SchoolProfileForm from "@/modules/settings/components/SchoolProfileForm";
+import SchoolProfileHistory from "@/modules/settings/components/SchoolProfileHistory";
 
 export default async function SchoolProfilePage() {
   const user = await getCurrentUser();
@@ -20,6 +21,7 @@ export default async function SchoolProfilePage() {
       />
       <main className="p-2   min-h-screen">
         <SchoolProfileForm canManage={user.permissions.includes("school:manage")} />
+        {user.permissions.includes("school:manage") && <SchoolProfileHistory />}
       </main>
     </>
   );

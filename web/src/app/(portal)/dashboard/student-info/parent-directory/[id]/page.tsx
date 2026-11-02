@@ -1,20 +1,15 @@
-// app/(dashboard)/student-info/students/[id]/page.tsx
-import { DASHBOARD_HREF } from "@/modules/dashboard/components/Navigation";
-import { getStudent } from "@/modules/students/student";
-import { StudentProfile } from "@/modules/students/student-profile/StudentProfile";
-    
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/core/session/server";
+import GuardiansWorkspace from "@/modules/students/GuardiansWorkspace";
 
-
-export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function GuardianDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth");
+  if (!user.permissions.includes("guardians:read")) notFound();
   const { id } = await params;
-  const student = await getStudent(id);
-  if (!student) notFound();
-  return (
-    <>
-      <Link href={`${DASHBOARD_HREF}/student-info/parent-directory`} className="mb-4 inline-block text-sm text-muted hover:text-ink">← All parents</Link>
-      <StudentProfile s={student} />
-    </>
-  );
+  return <GuardiansWorkspace permissions={user.permissions} initialSelectedId={id} />;
 }
