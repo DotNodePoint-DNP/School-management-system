@@ -114,5 +114,18 @@ export const AUDIT_ACTIONS = [
   'promotion.applied',
   'promotion.rolls_assigned',
   'promotion.undone',
+
+  'fiscal_year.created',
+  'fiscal_year.updated',
+  'fiscal_year.closed',
+  'fee_head.created',
+  'fee_head.updated',
+  'fee_head.deleted',
+  'billing_periods.generated',
+  'billing_period.created',
+  'billing_period.updated',
+  'billing_period.deleted',
+  'fee_structure.updated',
+  'fee_structure.copied',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
