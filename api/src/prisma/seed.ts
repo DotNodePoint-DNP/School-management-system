@@ -177,6 +177,34 @@ async function main(): Promise<void> {
             ),
           });
         }
+
+        // Seed School Classes (Nursery, LKG, UKG, Grade 1 to 10)
+        const classesToSeed = [
+          { name: 'Nursery', sortOrder: 1 },
+          { name: 'LKG', sortOrder: 2 },
+          { name: 'UKG', sortOrder: 3 },
+          { name: 'Grade 1', sortOrder: 4 },
+          { name: 'Grade 2', sortOrder: 5 },
+          { name: 'Grade 3', sortOrder: 6 },
+          { name: 'Grade 4', sortOrder: 7 },
+          { name: 'Grade 5', sortOrder: 8 },
+          { name: 'Grade 6', sortOrder: 9 },
+          { name: 'Grade 7', sortOrder: 10 },
+          { name: 'Grade 8', sortOrder: 11 },
+          { name: 'Grade 9', sortOrder: 12 },
+          { name: 'Grade 10', sortOrder: 13 },
+        ];
+
+        for (const cls of classesToSeed) {
+          await tx.schoolClass.upsert({
+            where: { name: cls.name },
+            update: { sortOrder: cls.sortOrder },
+            create: {
+              name: cls.name,
+              sortOrder: cls.sortOrder,
+            },
+          });
+        }
       },
       {
         maxWait: 50000, // default: 2000 ms
