@@ -103,15 +103,31 @@ export class FeeHeadsService {
         );
       }
       if (dto.isActive === false && current.isActive) {
-        const open = await tx.feeStructureLine.count({
-          where: {
-            feeHeadId: id,
-            academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
-          },
-        });
-        if (open > 0)
+        const [openStructures, openAssignments] = await Promise.all([
+          tx.feeStructureLine.count({
+            where: {
+              feeHeadId: id,
+              academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
+            },
+          }),
+          tx.studentFeeAssignment.count({
+            where: {
+              feeHeadId: id,
+              enrollment: {
+                academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
+              },
+            },
+          }),
+        ]);
+
+        if (openStructures > 0)
           throw new ConflictException(
-            `This head is still in ${open} fee structure line(s) of open academic years. Remove it from them first.`,
+            `This head is still in ${openStructures} fee structure line(s) of open academic years. Remove it from them first.`,
+          );
+
+        if (openAssignments > 0)
+          throw new ConflictException(
+            'This head is still assigned to students in open academic years.',
           );
       }
 
@@ -151,18 +167,29 @@ export class FeeHeadsService {
       >`SELECT id FROM fee_heads WHERE id = ${id}::uuid FOR UPDATE`;
       if (locked.length === 0)
         throw new NotFoundException('Fee head not found');
+
       const head = await tx.feeHead.findUniqueOrThrow({
         where: { id },
         select: { code: true },
       });
-      if ((await tx.feeStructureLine.count({ where: { feeHeadId: id } })) > 0) {
+
+      const [structureCount, assignmentCount, discountCount] =
+        await Promise.all([
+          tx.feeStructureLine.count({ where: { feeHeadId: id } }),
+          tx.studentFeeAssignment.count({ where: { feeHeadId: id } }),
+          tx.studentDiscount.count({ where: { feeHeadId: id } }),
+        ]);
+
+      if (structureCount > 0 || assignmentCount > 0 || discountCount > 0) {
         throw new ConflictException(
-          'This head is used in fee structures. Deactivate it instead of deleting it.',
+          'This head is used in fee structures, assignments, or discounts. Deactivate it instead of deleting it.',
         );
       }
+
       await tx.feeHead.delete({ where: { id } });
       return head.code;
     }, TX);
+
     await this.audit.record({
       actor,
       action: 'fee_head.deleted',

@@ -283,6 +283,17 @@ export class BillingPeriodsService {
         throw new ConflictException(
           `${used} fee structure line(s) use this period. Remove it from them first.`,
         );
+
+      const [assigned, discounted] = await Promise.all([
+        tx.studentFeeAssignmentPeriod.count({ where: { periodId: id } }),
+        tx.studentDiscount.count({
+          where: { OR: [{ fromPeriodId: id }, { toPeriodId: id }] },
+        }),
+      ]);
+      if (assigned + discounted > 0)
+        throw new ConflictException(
+          'Student fee assignments or discounts use this period. Remove them first.',
+        );
       await tx.billingPeriod.delete({ where: { id } });
       await this.resequence(tx, yearId);
     }, TX);

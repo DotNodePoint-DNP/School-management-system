@@ -483,6 +483,15 @@ export class EnrollmentsService {
         throw new ConflictException(
           'This enrollment is part of an applied promotion. Use "undo" on the promotion plan instead.',
         );
+
+      const fees =
+        (await tx.studentFeeAssignment.count({ where: { enrollmentId } })) +
+        (await tx.studentDiscount.count({ where: { enrollmentId } }));
+      if (fees > 0)
+        throw new ConflictException(
+          'This enrollment has fee assignments or discounts. Withdraw the student instead of deleting the enrollment.',
+        );
+
       await tx.promotionDecision.deleteMany({ where: { enrollmentId } }); // an unapplied plan row for a deleted enrollment
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {

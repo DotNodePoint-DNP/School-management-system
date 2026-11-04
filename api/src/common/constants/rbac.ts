@@ -86,5 +86,9 @@ export const PERMISSIONS = [
   'fees:read',
   'fees:structure-manage',
   'fees:fiscal-manage',
+
+  'fees:assign',
+  'fees:discount-create',
+  'fees:discount-approve',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

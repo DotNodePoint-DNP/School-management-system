@@ -48,6 +48,8 @@ model FeeHead {
     updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
     structureLines FeeStructureLine[]
+    assignments    StudentFeeAssignment[]
+    discounts      StudentDiscount[]
 
     @@map("fee_heads")
 }
@@ -64,8 +66,11 @@ model BillingPeriod {
     createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    academicYear AcademicYear             @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-    lines        FeeStructureLinePeriod[]
+    academicYear      AcademicYear                 @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    lines             FeeStructureLinePeriod[]
+    assignmentPeriods StudentFeeAssignmentPeriod[]
+    discountsFrom     StudentDiscount[]            @relation("DiscountFrom")
+    discountsTo       StudentDiscount[]            @relation("DiscountTo")
 
     @@unique([academicYearId, sequence])
     @@unique([academicYearId, name])
@@ -107,4 +112,102 @@ model FeeStructureLinePeriod {
     @@id([lineId, periodId])
     @@index([periodId])
     @@map("fee_structure_line_periods")
+}
+
+enum DiscountCategory {
+    MERIT_SCHOLARSHIP
+    NEED_SCHOLARSHIP
+    SIBLING
+    STAFF_CHILD
+    MANAGEMENT
+    OTHER
+}
+
+enum DiscountType {
+    PERCENT
+    FIXED_OFF
+    PRICE_OVERRIDE
+}
+
+enum DiscountStatus {
+    PENDING
+    APPROVED
+    REJECTED
+    REVOKED
+}
+
+model StudentFeeAssignment {
+    id           String   @id @default(uuid(7)) @db.Uuid
+    enrollmentId String   @map("enrollment_id") @db.Uuid
+    feeHeadId    String   @map("fee_head_id") @db.Uuid
+    amount       Decimal  @db.Decimal(12, 2)
+    note         String?
+    createdById  String   @map("created_by_id") @db.Uuid
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    enrollment Enrollment                   @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+    feeHead    FeeHead                      @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+    periods    StudentFeeAssignmentPeriod[]
+
+    @@unique([id, enrollmentId, feeHeadId])
+    @@index([enrollmentId])
+    @@map("student_fee_assignments")
+}
+
+model StudentFeeAssignmentPeriod {
+    assignmentId   String @map("assignment_id") @db.Uuid
+    enrollmentId   String @map("enrollment_id") @db.Uuid
+    feeHeadId      String @map("fee_head_id") @db.Uuid
+    periodId       String @map("period_id") @db.Uuid
+    academicYearId String @map("academic_year_id") @db.Uuid
+
+    assignment StudentFeeAssignment @relation(fields: [assignmentId, enrollmentId, feeHeadId], references: [id, enrollmentId, feeHeadId], onDelete: Cascade)
+    // The database guarantees the enrollment and the period belong to the same academic year.
+    enrollment Enrollment           @relation(fields: [enrollmentId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+    period     BillingPeriod        @relation(fields: [periodId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+
+    @@id([assignmentId, periodId])
+    // One head is never billed twice for the same student and period, even across two assignments.
+    @@unique([enrollmentId, feeHeadId, periodId])
+    @@index([periodId])
+    @@map("student_fee_assignment_periods")
+}
+
+model StudentDiscount {
+    id             String           @id @default(uuid(7)) @db.Uuid
+    enrollmentId   String           @map("enrollment_id") @db.Uuid
+    academicYearId String           @map("academic_year_id") @db.Uuid
+    category       DiscountCategory
+    /// null means the whole invoice.
+    feeHeadId      String?          @map("fee_head_id") @db.Uuid
+    type           DiscountType
+    /// PERCENT: a percentage (2 decimals). FIXED_OFF: rupees off. PRICE_OVERRIDE: the price to charge instead.
+    value          Decimal          @db.Decimal(12, 2)
+    /// null on both: the whole academic year.
+    fromPeriodId   String?          @map("from_period_id") @db.Uuid
+    toPeriodId     String?          @map("to_period_id") @db.Uuid
+    reason         String
+    status         DiscountStatus   @default(PENDING)
+    createdById    String           @map("created_by_id") @db.Uuid
+    lastEditedById String           @map("last_edited_by_id") @db.Uuid
+    createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+    approvedById   String?          @map("approved_by_id") @db.Uuid
+    approvedAt     DateTime?        @map("approved_at") @db.Timestamptz(6)
+    rejectedById   String?          @map("rejected_by_id") @db.Uuid
+    rejectedAt     DateTime?        @map("rejected_at") @db.Timestamptz(6)
+    rejectReason   String?          @map("reject_reason")
+    revokedById    String?          @map("revoked_by_id") @db.Uuid
+    revokedAt      DateTime?        @map("revoked_at") @db.Timestamptz(6)
+    revokeReason   String?          @map("revoke_reason")
+
+    enrollment Enrollment     @relation(fields: [enrollmentId, academicYearId], references: [id, academicYearId], onDelete: Restrict)
+    feeHead    FeeHead?       @relation(fields: [feeHeadId], references: [id], onDelete: Restrict)
+    fromPeriod BillingPeriod? @relation("DiscountFrom", fields: [fromPeriodId], references: [id], onDelete: Restrict)
+    toPeriod   BillingPeriod? @relation("DiscountTo", fields: [toPeriodId], references: [id], onDelete: Restrict)
+
+    @@index([enrollmentId, status])
+    @@index([status, createdAt])
+    @@map("student_discounts")
 }

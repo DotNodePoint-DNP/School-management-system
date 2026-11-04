@@ -8,21 +8,42 @@ import { FeeHeadsService } from './fee-heads.service.js';
 import { FeeStructuresService } from './fee-structures.service.js';
 import { FiscalYearsController } from './fiscal-years.controller.js';
 import { FiscalYearsService } from './fiscal-years.service.js';
+import { StudentFeesController } from './student-fees.controller.js';
+import { ChargePlannerService } from './charge-planner.service.js';
+import { DiscountsService } from './discounts.service.js';
+import { FeeAssignmentsService } from './fee-assignments.service.js';
+import { FeeEnrollmentLockService } from './fee-enrollment-lock.service.js';
+import { FeeProfileService } from './fee-profile.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
-  controllers: [FiscalYearsController, FeeHeadsController, BillingController],
+  controllers: [
+    FiscalYearsController,
+    FeeHeadsController,
+    BillingController,
+    StudentFeesController,
+  ],
   providers: [
     FiscalYearsService,
     FeeHeadsService,
     BillingPeriodsService,
     FeeStructuresService,
+    FeeEnrollmentLockService,
+    FeeAssignmentsService,
+    DiscountsService,
+    ChargePlannerService,
+    FeeProfileService,
   ],
   exports: [
     FiscalYearsService,
     FeeHeadsService,
     BillingPeriodsService,
     FeeStructuresService,
+    FeeEnrollmentLockService,
+    FeeAssignmentsService,
+    DiscountsService,
+    ChargePlannerService,
+    FeeProfileService,
   ],
 })
 export class FeesModule {}

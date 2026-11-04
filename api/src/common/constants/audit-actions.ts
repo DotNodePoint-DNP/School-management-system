@@ -127,5 +127,15 @@ export const AUDIT_ACTIONS = [
   'billing_period.deleted',
   'fee_structure.updated',
   'fee_structure.copied',
+
+  'fee_assignment.created',
+  'fee_assignment.updated',
+  'fee_assignment.deleted',
+  'discount.created',
+  'discount.updated',
+  'discount.deleted',
+  'discount.approved',
+  'discount.rejected',
+  'discount.revoked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
