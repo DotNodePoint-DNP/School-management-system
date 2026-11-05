@@ -492,6 +492,12 @@ export class EnrollmentsService {
           'This enrollment has fee assignments or discounts. Withdraw the student instead of deleting the enrollment.',
         );
 
+      if ((await tx.invoice.count({ where: { enrollmentId } })) > 0) {
+        throw new ConflictException(
+          'This enrollment has invoices. Withdraw the student instead of deleting the enrollment.',
+        );
+      }
+
       await tx.promotionDecision.deleteMany({ where: { enrollmentId } }); // an unapplied plan row for a deleted enrollment
       await tx.enrollment.delete({ where: { id: enrollmentId } });
       return {

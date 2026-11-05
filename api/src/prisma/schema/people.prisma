@@ -137,6 +137,7 @@ model Student {
   guardians   StudentGuardian[]
   enrollments Enrollment[]
   documents   StudentDocument[]
+  invoices    Invoice[]
 
   @@index([lastName, firstName])
   @@index([dateOfBirth])
@@ -224,6 +225,7 @@ model Enrollment {
   feeAssignments       StudentFeeAssignment[]
   feeAssignmentPeriods StudentFeeAssignmentPeriod[]
   discounts            StudentDiscount[]
+  invoices             Invoice[]
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])

@@ -137,5 +137,13 @@ export const AUDIT_ACTIONS = [
   'discount.approved',
   'discount.rejected',
   'discount.revoked',
+
+  'invoice.run',
+  'invoice.created',
+  'invoice.voided',
+  'invoice.reissued',
+  'adjustment.requested',
+  'adjustment.approved',
+  'adjustment.rejected',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -14,6 +14,10 @@ import { DiscountsService } from './discounts.service.js';
 import { FeeAssignmentsService } from './fee-assignments.service.js';
 import { FeeEnrollmentLockService } from './fee-enrollment-lock.service.js';
 import { FeeProfileService } from './fee-profile.service.js';
+import { InvoicesController } from './invoices.controller.js';
+import { InvoiceBalanceService } from './invoice-balance.service.js';
+import { InvoiceGenerationService } from './invoice-generation.service.js';
+import { InvoicesService } from './invoices.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -22,6 +26,7 @@ import { FeeProfileService } from './fee-profile.service.js';
     FeeHeadsController,
     BillingController,
     StudentFeesController,
+    InvoicesController,
   ],
   providers: [
     FiscalYearsService,
@@ -33,6 +38,9 @@ import { FeeProfileService } from './fee-profile.service.js';
     DiscountsService,
     ChargePlannerService,
     FeeProfileService,
+    InvoiceBalanceService,
+    InvoiceGenerationService,
+    InvoicesService,
   ],
   exports: [
     FiscalYearsService,
@@ -44,6 +52,9 @@ import { FeeProfileService } from './fee-profile.service.js';
     DiscountsService,
     ChargePlannerService,
     FeeProfileService,
+    InvoiceBalanceService,
+    InvoiceGenerationService,
+    InvoicesService,
   ],
 })
 export class FeesModule {}

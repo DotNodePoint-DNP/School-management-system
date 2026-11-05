@@ -90,5 +90,10 @@ export const PERMISSIONS = [
   'fees:assign',
   'fees:discount-create',
   'fees:discount-approve',
+
+  'fees:invoice-generate',
+  'fees:invoice-void',
+  'fees:adjust',
+  'fees:adjust-approve',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

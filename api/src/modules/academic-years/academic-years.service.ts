@@ -505,6 +505,7 @@ export class AcademicYearsService {
         promotionRun,
         billingPeriod,
         feeStructureLine,
+        invoice,
       ] = await Promise.all([
         tx.term.count({ where: { academicYearId: id } }),
         tx.classSubject.count({ where: { academicYearId: id } }),
@@ -518,7 +519,8 @@ export class AcademicYearsService {
           where: { OR: [{ fromYearId: id }, { toYearId: id }] },
         }),
         tx.billingPeriod.count({ where: { academicYearId: id } }),
-        tx.feeStructureLine.count({ where: { academicYearId: id } })
+        tx.feeStructureLine.count({ where: { academicYearId: id } }),
+        tx.invoice.count({ where: { academicYearId: id } }),
       ]);
       if (
         terms +
@@ -531,7 +533,8 @@ export class AcademicYearsService {
           resultPolicies +
           promotionRun +
           billingPeriod +
-          feeStructureLine >
+          feeStructureLine +
+          invoice >
         0
       ) {
         throw new ConflictException(

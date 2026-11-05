@@ -173,16 +173,17 @@ export class FeeHeadsService {
         select: { code: true },
       });
 
-      const [structureCount, assignmentCount, discountCount] =
+      const [structureCount, assignmentCount, discountCount, invoiceCount] =
         await Promise.all([
           tx.feeStructureLine.count({ where: { feeHeadId: id } }),
           tx.studentFeeAssignment.count({ where: { feeHeadId: id } }),
           tx.studentDiscount.count({ where: { feeHeadId: id } }),
+          tx.invoiceLine.count({ where: { feeHeadId: id } })
         ]);
 
-      if (structureCount > 0 || assignmentCount > 0 || discountCount > 0) {
+      if (structureCount > 0 || assignmentCount > 0 || discountCount > 0 || invoiceCount > 0) {
         throw new ConflictException(
-          'This head is used in fee structures, assignments, or discounts. Deactivate it instead of deleting it.',
+          'This head is used in fee structures, assignments, discounts, or invoices. Deactivate it instead of deleting it.',
         );
       }
 
