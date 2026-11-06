@@ -44,5 +44,7 @@ describe("backend role and permission mapping", () => {
         "students:read-all",
       ]),
     ).toBe(false);
+    expect(hasDashboardAccess("/dashboard/staff/directory", ["staff:manage"])).toBe(true);
+    expect(hasDashboardAccess("/dashboard/staff/directory", ["staff:create-login"])).toBe(false);
   });
 });

@@ -32,6 +32,101 @@ describe("shared API client", () => {
     );
   });
 
+  it("normalizes paginated API envelopes without dropping metadata", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [{ id: "student-1" }],
+            meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getPaginated<{ id: string }>("/students"),
+    ).resolves.toEqual({
+      items: [{ id: "student-1" }],
+      meta: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+    });
+  });
+
+  it("rejects malformed paginated API responses explicitly", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ success: true, data: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(
+      createApiClient().getPaginated("/students"),
+    ).rejects.toThrow("The API returned an invalid paginated response.");
+  });
+
+  it("normalizes cursor-paginated responses for audit logs", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [{ id: "audit-1" }],
+            meta: { limit: 50, nextCursor: "cursor-2" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getCursorPaginated<{ id: string }>("/audit-logs"),
+    ).resolves.toEqual({
+      items: [{ id: "audit-1" }],
+      meta: { limit: 50, nextCursor: "cursor-2" },
+    });
+  });
+
+  it("rejects malformed cursor-paginated API responses", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [],
+            meta: { limit: 50 },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      createApiClient().getCursorPaginated("/audit-logs"),
+    ).rejects.toThrow("The API returned an invalid cursor-paginated response.");
+  });
+
   it("refreshes an expired access token once and retries the request", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
     vi.stubGlobal("window", {});
@@ -88,6 +183,74 @@ describe("shared API client", () => {
       message: "Not allowed",
       requestId: "request-123",
     } satisfies Partial<ApiClientError>);
+  });
+
+  it("supports PATCH, PUT, and DELETE requests", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Response(JSON.stringify({ success: true, data: { ok: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createApiClient();
+
+    await client.patch("/rbac/roles/role-id", { name: "Updated" });
+    await client.put("/rbac/roles/role-id/permissions", {
+      permissions: ["students:read"],
+    });
+    await client.delete("/rbac/roles/role-id");
+
+    expect(fetchMock.mock.calls.map((call) => call[1]?.method)).toEqual([
+      "PATCH",
+      "PUT",
+      "DELETE",
+    ]);
+    expect(fetchMock.mock.calls[0][1]?.body).toBe(
+      JSON.stringify({ name: "Updated" }),
+    );
+    expect(fetchMock.mock.calls[1][1]?.body).toBe(
+      JSON.stringify({ permissions: ["students:read"] }),
+    );
+    expect(fetchMock.mock.calls[2][1]?.body).toBeUndefined();
+  });
+
+  it("sends multipart form data without setting a JSON content type", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Response(JSON.stringify({ success: true, data: { uploaded: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const formData = new FormData();
+    formData.append("file", new Blob(["image"]), "logo.png");
+
+    await createApiClient().put("/school/logo", formData);
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.body).toBe(formData);
+    expect(new Headers(options.headers).has("Content-Type")).toBe(false);
+  });
+
+  it("returns raw image responses as blobs", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test/api/v1");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["image"]), {
+        status: 200,
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createApiClient().getBlob("/school/assets/logo");
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(await result.text()).toBe("image");
   });
 
   it("requires an HTTPS backend URL in production", () => {

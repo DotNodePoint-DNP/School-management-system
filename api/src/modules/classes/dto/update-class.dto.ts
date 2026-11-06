@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { Trim } from '../../../common/decorators/trim.decorator.js';
 
 export class UpdateClassDto {
@@ -18,4 +18,9 @@ export class UpdateClassDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+    /** The class students move up to. null makes this a final class (its students graduate). */
+  @IsOptional()
+  @IsUUID('all')
+  nextClassId?: string | null;
 }

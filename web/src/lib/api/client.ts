@@ -3,7 +3,31 @@ import type { AuthLoginResponse } from "./contracts";
 /** Shared frontend transport boundary for the versioned backend API. */
 export interface ApiClient {
   get<T>(path: string, options?: RequestInit): Promise<T>;
+  getPaginated<T>(path: string): Promise<PaginatedResult<T>>;
+  getCursorPaginated<T>(path: string): Promise<CursorPaginatedResult<T>>;
+  getBlob(path: string, options?: RequestInit): Promise<Blob>;
   post<T>(path: string, body: unknown, options?: RequestInit): Promise<T>;
+  patch<T>(path: string, body: unknown, options?: RequestInit): Promise<T>;
+  put<T>(path: string, body: unknown, options?: RequestInit): Promise<T>;
+  delete<T>(path: string, options?: RequestInit): Promise<T>;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface CursorPaginatedResult<T> {
+  items: T[];
+  meta: {
+    limit: number;
+    nextCursor: string | null;
+  };
 }
 
 export class ApiClientError extends Error {
@@ -31,9 +55,7 @@ export function getApiBaseUrl(): string {
       ? undefined
       : "http://localhost:3001");
   if (!configured) {
-    throw new Error(
-      "Set NEXT_PUBLIC_API_URL to the backend URL.",
-    );
+    throw new Error("Set NEXT_PUBLIC_API_URL to the backend URL.");
   }
 
   const url = new URL(configured);
@@ -59,6 +81,8 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
     path: string,
     options?: RequestInit,
     retried = false,
+    responseType: "json" | "blob" = "json",
+    unwrapEnvelope = true,
   ): Promise<T> {
     if (
       !accessToken &&
@@ -66,10 +90,12 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
       typeof window !== "undefined" &&
       (await refreshApiSession())
     ) {
-      return request<T>(path, options, true);
+      return request<T>(path, options, true, responseType, unwrapEnvelope);
     }
     const headers = new Headers(options?.headers);
-    if (!headers.has("Content-Type")) {
+    const isFormData =
+      typeof FormData !== "undefined" && options?.body instanceof FormData;
+    if (!headers.has("Content-Type") && !isFormData) {
       headers.set("Content-Type", "application/json");
     }
     if (accessToken && !headers.has("Authorization")) {
@@ -87,7 +113,7 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
       typeof window !== "undefined"
     ) {
       const refreshed = await refreshApiSession();
-      if (refreshed) return request<T>(path, options, true);
+      if (refreshed) return request<T>(path, options, true, responseType, unwrapEnvelope);
     }
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
@@ -106,8 +132,12 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
         payload?.requestId ?? payload?.error?.requestId,
       );
     }
+    if (responseType === "blob") {
+      return (await response.blob()) as T;
+    }
     const payload = (await response.json()) as T | { success: true; data: T };
     if (
+      unwrapEnvelope &&
       payload &&
       typeof payload === "object" &&
       "success" in payload &&
@@ -121,13 +151,110 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
 
   return {
     get: <T>(path: string, options?: RequestInit) => request<T>(path, options),
+    getPaginated: async <T>(path: string) => {
+      const payload = await request<unknown>(
+        path,
+        undefined,
+        false,
+        "json",
+        false,
+      );
+      if (
+        !isRecord(payload) ||
+        payload.success !== true ||
+        !Array.isArray(payload.data) ||
+        !isRecord(payload.meta)
+      ) {
+        throw new Error("The API returned an invalid paginated response.");
+      }
+
+      const { page, pageSize, total, totalPages } = payload.meta;
+      if (
+        !isNonNegativeInteger(page) ||
+        page < 1 ||
+        !isNonNegativeInteger(pageSize) ||
+        pageSize < 1 ||
+        !isNonNegativeInteger(total) ||
+        !isNonNegativeInteger(totalPages)
+      ) {
+        throw new Error("The API returned invalid pagination metadata.");
+      }
+
+      return {
+        items: payload.data as T[],
+        meta: { page, pageSize, total, totalPages },
+      };
+    },
+    getCursorPaginated: async <T>(path: string) => {
+      const payload = await request<unknown>(
+        path,
+        undefined,
+        false,
+        "json",
+        false,
+      );
+      if (
+        !isRecord(payload) ||
+        payload.success !== true ||
+        !Array.isArray(payload.data) ||
+        !isRecord(payload.meta) ||
+        !isNonNegativeInteger(payload.meta.limit) ||
+        payload.meta.limit < 1 ||
+        payload.meta.limit > 100 ||
+        (payload.meta.nextCursor !== null &&
+          typeof payload.meta.nextCursor !== "string")
+      ) {
+        throw new Error("The API returned an invalid cursor-paginated response.");
+      }
+
+      return {
+        items: payload.data as T[],
+        meta: {
+          limit: payload.meta.limit,
+          nextCursor: payload.meta.nextCursor,
+        },
+      };
+    },
+    getBlob: (path: string, options?: RequestInit) =>
+      request<Blob>(path, options, false, "blob"),
     post: <T>(path: string, body: unknown, options?: RequestInit) =>
       request<T>(path, {
         ...options,
         method: "POST",
-        body: JSON.stringify(body),
+        body:
+          typeof FormData !== "undefined" && body instanceof FormData
+            ? body
+            : JSON.stringify(body),
       }),
+    patch: <T>(path: string, body: unknown, options?: RequestInit) =>
+      request<T>(path, {
+        ...options,
+        method: "PATCH",
+        body:
+          typeof FormData !== "undefined" && body instanceof FormData
+            ? body
+            : JSON.stringify(body),
+      }),
+    put: <T>(path: string, body: unknown, options?: RequestInit) =>
+      request<T>(path, {
+        ...options,
+        method: "PUT",
+        body:
+          typeof FormData !== "undefined" && body instanceof FormData
+            ? body
+            : JSON.stringify(body),
+      }),
+    delete: <T>(path: string, options?: RequestInit) =>
+      request<T>(path, { ...options, method: "DELETE" }),
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 export function refreshApiSession(): Promise<AuthLoginResponse | null> {

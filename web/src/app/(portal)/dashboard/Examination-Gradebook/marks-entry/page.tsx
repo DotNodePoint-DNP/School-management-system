@@ -1,16 +1,20 @@
-"use client";
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/core/session/server";
+import MarksEntryWorkspace from "@/modules/examination-gradebook/MarksEntryWorkspace";
 
-import MarksEntryGrid from "@/modules/examination-gradebook/mark-entry/MarksEntryGrid"
-import { classes, exams, loadStudents, onSubmit, subjects, teacher } from "@/modules/examination-gradebook/mark-entry/mockdata"
+export default async function MarksEntryPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth");
+  if (
+    !user.permissions.some((permission) =>
+      ["marks:read", "marks:read-all", "marks:enter", "marks:enter-any"].includes(permission),
+    )
+  ) notFound();
 
- 
-const MarkEntry = () => {
   return (
-    <div>
-        <MarksEntryGrid teacher={teacher} subjects={subjects} classes={classes}
-              exams={exams} loadStudents={loadStudents} onSubmit={onSubmit}/>
-    </div>
-  )
+    <MarksEntryWorkspace
+      canCorrect={user.permissions.includes("marks:correct")}
+      canReopen={user.permissions.includes("marks:reopen")}
+    />
+  );
 }
-
-export default MarkEntry

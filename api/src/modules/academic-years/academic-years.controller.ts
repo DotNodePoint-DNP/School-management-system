@@ -22,6 +22,7 @@ import { CreateAcademicYearDto } from './dto/create-academic-year.dto.js';
 import { CreateTermDto } from './dto/create-term.dto.js';
 import { UpdateAcademicYearDto } from './dto/update-academic-year.dto.js';
 import { UpdateTermDto } from './dto/update-term.dto.js';
+import { CloseYearDto } from './dto/close-year.dto.js';
 
 @Controller('academic-years')
 export class AcademicYearsController {
@@ -84,9 +85,16 @@ export class AcademicYearsController {
   @RequirePermissions('academic-years:manage')
   close(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CloseYearDto,
     @CurrentUser() actor: AuthUser,
   ): Promise<AcademicYearResponse> {
-    return this.years.close(id, actor);
+    return this.years.close(id, dto, actor);
+  }
+
+  @Get(':id/closing-checklist')
+  @RequirePermissions('academic-years:read')
+  closingChecklist(@Param('id', ParseUUIDPipe) id: string) {
+    return this.years.closingChecklist(id);
   }
 
   @Delete(':id')

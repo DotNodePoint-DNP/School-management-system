@@ -1,329 +1,670 @@
 "use client";
 
-import React, { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { ApiClientError } from "@/lib/api/client";
+import {
+  copyGradeScale,
+  createGradeScale,
+  deleteGradeScale,
+  listGradeScales,
+  replaceGradeScale,
+  setDefaultGradeScale,
+  type GradeBand,
+  type GradeBandInput,
+  type GradeScale,
+} from "@/modules/settings/services/grade-scales";
 
-// --- TYPES ---
-export interface GradeBand {
-  id: string;
-  letterGrade: string; // e.g. "A+", "A", "B+"
-  gpaPoint: number; // e.g. 4.0, 3.6, 3.2
-  minPercentage: number; // e.g. 90
-  maxPercentage: number; // e.g. 100
-  remark: string; // e.g. "Outstanding", "Excellent"
-  isPassingGrade: boolean;
-}
+const queryKey = ["grade-scales"];
 
-export interface ClassGroupGradingScheme {
-  id: string;
-  groupName: string; // e.g. "Secondary & Higher Secondary (9-12)"
+interface BandDraft {
+  key: string;
+  grade: string;
+  minPercent: string;
+  gradePoint: string;
   description: string;
-  bands: GradeBand[];
+  isPass: boolean;
 }
 
-// --- INITIAL DEFAULT SCHEMES (Standard Nepalese / International Matrix) ---
-const INITIAL_SCHEMES: ClassGroupGradingScheme[] = [
-  {
-    id: "scheme-sec",
-    groupName: "Secondary & Higher Secondary (Grades 9 - 12)",
-    description: "Standard 4.0 GPA Letter Grading System with explicit passing thresholds",
-    bands: [
-      { id: "b1", letterGrade: "A+", gpaPoint: 4.0, minPercentage: 90, maxPercentage: 100, remark: "Outstanding", isPassingGrade: true },
-      { id: "b2", letterGrade: "A", gpaPoint: 3.6, minPercentage: 80, maxPercentage: 89, remark: "Excellent", isPassingGrade: true },
-      { id: "b3", letterGrade: "B+", gpaPoint: 3.2, minPercentage: 70, maxPercentage: 79, remark: "Very Good", isPassingGrade: true },
-      { id: "b4", letterGrade: "B", gpaPoint: 2.8, minPercentage: 60, maxPercentage: 69, remark: "Good", isPassingGrade: true },
-      { id: "b5", letterGrade: "C+", gpaPoint: 2.4, minPercentage: 50, maxPercentage: 59, remark: "Satisfactory", isPassingGrade: true },
-      { id: "b6", letterGrade: "C", gpaPoint: 2.0, minPercentage: 40, maxPercentage: 49, remark: "Acceptable", isPassingGrade: true },
-      { id: "b7", letterGrade: "D", gpaPoint: 1.6, minPercentage: 35, maxPercentage: 39, remark: "Basic", isPassingGrade: true },
-      { id: "b8", letterGrade: "NG", gpaPoint: 0.0, minPercentage: 0, maxPercentage: 34, remark: "Not Graded (Ungraded)", isPassingGrade: false },
-    ],
-  },
-  {
-    id: "scheme-pri",
-    groupName: "Primary & Lower Secondary (Grades 1 - 8)",
-    description: "Competency and Performance-based descriptive continuous grading",
-    bands: [
-      { id: "bp1", letterGrade: "A+", gpaPoint: 4.0, minPercentage: 90, maxPercentage: 100, remark: "Advanced Competency", isPassingGrade: true },
-      { id: "bp2", letterGrade: "A", gpaPoint: 3.6, minPercentage: 75, maxPercentage: 89, remark: "Proficient", isPassingGrade: true },
-      { id: "bp3", letterGrade: "B", gpaPoint: 2.8, minPercentage: 50, maxPercentage: 74, remark: "Developing", isPassingGrade: true },
-      { id: "bp4", letterGrade: "C", gpaPoint: 2.0, minPercentage: 0, maxPercentage: 49, remark: "Needs Support", isPassingGrade: true },
-    ],
-  },
-  {
-    id: "scheme-prep",
-    groupName: "Pre-Primary (Nursery, LKG, UKG)",
-    description: "Non-numeric qualitative evaluation benchmarks",
-    bands: [
-      { id: "bpre1", letterGrade: "E", gpaPoint: 4.0, minPercentage: 85, maxPercentage: 100, remark: "Exceeds Expectations", isPassingGrade: true },
-      { id: "bpre2", letterGrade: "M", gpaPoint: 3.0, minPercentage: 60, maxPercentage: 84, remark: "Meets Expectations", isPassingGrade: true },
-      { id: "bpre3", letterGrade: "P", gpaPoint: 2.0, minPercentage: 0, maxPercentage: 59, remark: "Progressing", isPassingGrade: true },
-    ],
-  },
-];
+function draftBands(bands: GradeBand[]): BandDraft[] {
+  return bands.map((band, index) => ({
+    key: `${band.grade}-${index}`,
+    grade: band.grade,
+    minPercent: String(band.minPercent),
+    gradePoint: String(band.gradePoint),
+    description: band.description,
+    isPass: band.isPass,
+  }));
+}
 
-export default function GradingScaleBuilder() {
-  const [schemes, setSchemes] = useState<ClassGroupGradingScheme[]>(INITIAL_SCHEMES);
-  const [activeSchemeId, setActiveSchemeId] = useState<string>("scheme-sec");
-  const [isSaved, setIsSaved] = useState<boolean>(false);
-
-  const activeScheme = schemes.find((s) => s.id === activeSchemeId) || schemes[0];
-
-  // --- HANDLERS ---
-
-  // 1. Update Specific Grade Band Input
-  const handleBandChange = (
-    bandId: string,
-    field: keyof GradeBand,
-    value: string | number | boolean
-  ) => {
-    setSchemes((prev) =>
-      prev.map((s) => {
-        if (s.id !== activeSchemeId) return s;
-        return {
-          ...s,
-          bands: s.bands.map((b) => (b.id === bandId ? { ...b, [field]: value } : b)),
-        };
-      })
-    );
+function newBand(key: string, values: Partial<BandDraft> = {}): BandDraft {
+  return {
+    key,
+    grade: values.grade ?? "",
+    minPercent: values.minPercent ?? "",
+    gradePoint: values.gradePoint ?? "",
+    description: values.description ?? "",
+    isPass: values.isPass ?? true,
   };
+}
 
-  // 2. Add New Grade Band to Current Class Group
-  const handleAddBand = () => {
-    const newBand: GradeBand = {
-      id: `b-${Date.now()}`,
-      letterGrade: "NEW",
-      gpaPoint: 1.0,
-      minPercentage: 0,
-      maxPercentage: 20,
-      remark: "Needs Improvement",
-      isPassingGrade: true,
-    };
+function parseBands(bands: BandDraft[]): GradeBandInput[] {
+  return bands.map((band) => ({
+    grade: band.grade.trim(),
+    minPercent: Number(band.minPercent),
+    gradePoint: Number(band.gradePoint),
+    description: band.description.trim(),
+    isPass: band.isPass,
+  }));
+}
 
-    setSchemes((prev) =>
-      prev.map((s) => {
-        if (s.id !== activeSchemeId) return s;
-        return { ...s, bands: [...s.bands, newBand] };
-      })
-    );
+function validateBands(bands: GradeBandInput[]): string | null {
+  if (bands.length < 2 || bands.length > 15) {
+    return "A scale must contain between 2 and 15 bands.";
+  }
+  if (bands.some((band) => !band.grade || !band.description)) {
+    return "Each band needs a grade and description.";
+  }
+  if (
+    bands.some(
+      (band) =>
+        band.grade.length > 6 ||
+        !Number.isFinite(band.minPercent) ||
+        band.minPercent < 0 ||
+        band.minPercent > 100 ||
+        !Number.isFinite(band.gradePoint) ||
+        band.gradePoint < 0 ||
+        band.gradePoint > 10 ||
+        band.description.length > 40,
+    )
+  ) {
+    return "Check band limits: grade up to 6 characters, threshold 0–100%, grade point 0–10, and description up to 40 characters.";
+  }
 
-    toast.info("New grade band appended. Please adjust boundary range percentages.");
-  };
-
-  // 3. Delete Grade Band
-  const handleRemoveBand = (bandId: string) => {
-    if (activeScheme.bands.length <= 2) {
-      toast.error("A grading scale must maintain at least two grade bands.");
-      return;
+  const ascending = [...bands].sort((a, b) => a.minPercent - b.minPercent);
+  if (ascending[0]?.minPercent !== 0) {
+    return "A grade band must start at 0% so every mark is covered.";
+  }
+  if (new Set(ascending.map((band) => Math.round(band.minPercent * 100))).size !== bands.length) {
+    return "Each band must have a unique threshold percentage.";
+  }
+  if (new Set(ascending.map((band) => band.grade.toLowerCase())).size !== bands.length) {
+    return "Each band must have a unique grade.";
+  }
+  for (let index = 1; index < ascending.length; index += 1) {
+    const lower = ascending[index - 1];
+    const higher = ascending[index];
+    if (!lower || !higher) continue;
+    if (higher.gradePoint < lower.gradePoint) {
+      return "Grade points cannot decrease as the percentage threshold increases.";
     }
+    if (lower.isPass && !higher.isPass) {
+      return "A higher percentage band cannot fail when a lower band passes.";
+    }
+  }
+  return null;
+}
 
-    setSchemes((prev) =>
-      prev.map((s) => {
-        if (s.id !== activeSchemeId) return s;
-        return { ...s, bands: s.bands.filter((b) => b.id !== bandId) };
-      })
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    if (error.status === 403) {
+      return "You do not have permission to manage grading scales.";
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "The request failed.";
+}
+
+const inputClass =
+  "rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal disabled:opacity-60";
+
+export default function GradingScaleBuilder({
+  canManage = true,
+}: {
+  canManage?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const scalesQuery = useQuery({
+    queryKey,
+    queryFn: listGradeScales,
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const createMutation = useMutation({
+    mutationFn: createGradeScale,
+    onSuccess: async (scale) => {
+      await queryClient.invalidateQueries({ queryKey });
+      setSelectedId(scale.id);
+      setCreating(false);
+      toast.success(`Grading scale "${scale.name}" created.`);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const copyMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      copyGradeScale(id, name),
+    onSuccess: async (scale) => {
+      await queryClient.invalidateQueries({ queryKey });
+      setSelectedId(scale.id);
+      setCreating(false);
+      toast.success(`Grading scale copied as "${scale.name}".`);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const defaultMutation = useMutation({
+    mutationFn: setDefaultGradeScale,
+    onSuccess: async (scale) => {
+      await queryClient.invalidateQueries({ queryKey });
+      toast.success(`"${scale.name}" is now the default grading scale.`);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteGradeScale,
+    onSuccess: async (_result, id) => {
+      await queryClient.invalidateQueries({ queryKey });
+      if (selectedId === id) setSelectedId(null);
+      toast.success("Grading scale deleted.");
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const selectedScale =
+    scalesQuery.data?.find((scale) => scale.id === selectedId) ??
+    scalesQuery.data?.[0] ??
+    null;
+
+  function startCreate() {
+    setSelectedId(null);
+    setCreating(true);
+  }
+
+  function copyScale(scale: GradeScale) {
+    const name = window.prompt(
+      "Name for the copied grading scale:",
+      `${scale.name} (Copy)`,
     );
-
-    toast.success("Grade band removed.");
-  };
-
-  // 4. Save & Validate Scheme Overlaps
-  const handleSaveSchemes = () => {
-    // Basic Boundary Overlap Checks
-    let hasOverlap = false;
-    const sortedBands = [...activeScheme.bands].sort((a, b) => b.minPercentage - a.minPercentage);
-
-    for (let i = 0; i < sortedBands.length - 1; i++) {
-      if (sortedBands[i].minPercentage <= sortedBands[i + 1].maxPercentage) {
-        hasOverlap = true;
-        break;
-      }
+    if (name?.trim()) {
+      copyMutation.mutate({ id: scale.id, name: name.trim() });
     }
+  }
 
-    if (hasOverlap) {
-      toast.warning("Boundary Warning: Potential percentage overlap detected between bands.", {
-        description: "Ensure min/max bounds are contiguous (e.g. 80-89 and 90-100).",
-      });
+  function removeScale(scale: GradeScale) {
+    if (scale.isDefault || scale.policyCount > 0) return;
+    if (window.confirm(`Delete grading scale "${scale.name}"?`)) {
+      deleteMutation.mutate(scale.id);
     }
+  }
 
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-
-    toast.success(`Grading scale saved for ${activeScheme.groupName}`, {
-      description: "Applied to term examination progress reports and report cards.",
-    });
-
-    console.log("Saved Grading Configuration:", JSON.stringify(schemes, null, 2));
-  };
+  if (scalesQuery.isPending) {
+    return (
+      <p className="p-6 text-sm text-muted" role="status">
+        Loading grading scales…
+      </p>
+    );
+  }
+  if (scalesQuery.isError) {
+    return (
+      <div className="rounded-lg border border-coral bg-panel p-5 text-sm text-coral" role="alert">
+        <p>{errorMessage(scalesQuery.error)}</p>
+        <button
+          className="mt-2 underline"
+          onClick={() => void scalesQuery.refetch()}
+          type="button"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-6">
-      {/* Top Banner */}
-      <div className="flex flex-col gap-4 border-b border-line pb-6 md:flex-row md:items-center md:justify-between">
+    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-ink">Grading Scale Builder</h1>
-          <p className="mt-1 text-xs font-medium text-muted">
-            Configure letter grade boundaries, GPA values, percentage ranges, and remarks per academic class group.
+          <h1 className="text-2xl font-bold tracking-tight text-ink">
+            Grading scales
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Define grade thresholds, grade points, and pass status.
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          {isSaved && (
-            <span className="text-xs font-bold text-teal animate-pulse">
-              ✓ Matrix Synchronized
-            </span>
-          )}
+        {canManage && (
           <button
-            onClick={handleSaveSchemes}
-            className="rounded-lg bg-teal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-panel shadow-sm transition-all hover:bg-navy focus:outline-none focus:ring-2 focus:ring-teal"
+            className="rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy"
+            onClick={startCreate}
+            type="button"
           >
-            Save Grading Scale
+            Create grading scale
           </button>
-        </div>
-      </div>
+        )}
+      </header>
 
-      {/* Class Group Selectors */}
-      <div className="flex flex-wrap gap-2">
-        {schemes.map((s) => {
-          const isActive = s.id === activeSchemeId;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setActiveSchemeId(s.id)}
-              className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                isActive
-                  ? "border-teal bg-teal/5 text-ink shadow-2xs ring-1 ring-teal"
-                  : "border-line bg-panel text-muted hover:border-navy/40 hover:text-ink"
-              }`}
-            >
-              <p className="text-xs font-bold">{s.groupName}</p>
-              <p className="mt-0.5 text-[10px] opacity-80">{s.bands.length} Grade Bands defined</p>
-            </button>
-          );
-        })}
-      </div>
+      {!canManage && (
+        <p className="rounded-md border border-amber/60 bg-panel p-3 text-sm text-ink">
+          You can view grading scales, but need exam management permission to
+          make changes.
+        </p>
+      )}
 
-      {/* Main Grading Matrix Editor */}
-      <div className="rounded-xl border border-line bg-panel p-6 shadow-2xs">
-        <div className="flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-bold text-ink">{activeScheme.groupName}</h2>
-            <p className="text-xs text-muted">{activeScheme.description}</p>
-          </div>
-
-          <button
-            onClick={handleAddBand}
-            className="rounded-lg border border-dashed border-teal bg-teal/5 px-3 py-1.5 text-xs font-bold text-teal hover:bg-teal/10 transition-all"
-          >
-            + Add Grade Band
-          </button>
-        </div>
-
-        {/* Bands Table */}
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-background border-b border-line text-[10px] uppercase font-bold text-muted">
-              <tr>
-                <th className="px-4 py-3">Grade Letter</th>
-                <th className="px-4 py-3">GPA Value</th>
-                <th className="px-4 py-3">Min %</th>
-                <th className="px-4 py-3">Max %</th>
-                <th className="px-4 py-3">Remarks / Description</th>
-                <th className="px-4 py-3">Passing Grade</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60 font-medium text-ink">
-              {activeScheme.bands.map((band) => (
-                <tr key={band.id} className="hover:bg-background/50 transition-colors">
-                  {/* Letter Grade */}
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      value={band.letterGrade}
-                      onChange={(e) => handleBandChange(band.id, "letterGrade", e.target.value)}
-                      className="w-16 rounded border border-line bg-panel px-2 py-1 text-center font-black text-navy uppercase focus:border-teal focus:outline-none"
-                    />
-                  </td>
-
-                  {/* GPA Point */}
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="4.0"
-                      value={band.gpaPoint}
-                      onChange={(e) => handleBandChange(band.id, "gpaPoint", parseFloat(e.target.value) || 0)}
-                      className="w-16 rounded border border-line bg-panel px-2 py-1 text-center font-bold text-ink focus:border-teal focus:outline-none"
-                    />
-                  </td>
-
-                  {/* Min % */}
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={band.minPercentage}
-                      onChange={(e) => handleBandChange(band.id, "minPercentage", parseInt(e.target.value) || 0)}
-                      className="w-16 rounded border border-line bg-panel px-2 py-1 text-center font-bold text-teal focus:border-teal focus:outline-none"
-                    />
-                    <span className="ml-1 text-muted">%</span>
-                  </td>
-
-                  {/* Max % */}
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={band.maxPercentage}
-                      onChange={(e) => handleBandChange(band.id, "maxPercentage", parseInt(e.target.value) || 0)}
-                      className="w-16 rounded border border-line bg-panel px-2 py-1 text-center font-bold text-teal focus:border-teal focus:outline-none"
-                    />
-                    <span className="ml-1 text-muted">%</span>
-                  </td>
-
-                  {/* Remark */}
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      value={band.remark}
-                      onChange={(e) => handleBandChange(band.id, "remark", e.target.value)}
-                      className="w-full min-w-[140px] rounded border border-line bg-panel px-2.5 py-1 font-medium text-ink focus:border-teal focus:outline-none"
-                    />
-                  </td>
-
-                  {/* Pass / Fail Toggle */}
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleBandChange(band.id, "isPassingGrade", !band.isPassingGrade)}
-                      className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase transition-all ${
-                        band.isPassingGrade
-                          ? "bg-teal/10 text-teal border border-teal/20"
-                          : "bg-coral/10 text-coral border border-coral/20"
-                      }`}
-                    >
-                      {band.isPassingGrade ? "Pass" : "Fail / NG"}
-                    </button>
-                  </td>
-
-                  {/* Delete */}
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleRemoveBand(band.id)}
-                      className="text-muted hover:text-coral transition-colors font-bold"
-                      title="Remove Grade Band"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
+      {!scalesQuery.data.length && !creating ? (
+        <p className="rounded-lg border border-dashed border-line bg-panel p-8 text-center text-sm text-muted">
+          No grading scales are configured.
+        </p>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[minmax(220px,0.8fr)_2fr]">
+          <aside className="space-y-3">
+            <h2 className="text-sm font-semibold text-ink">Available scales</h2>
+            <ul className="space-y-2">
+              {scalesQuery.data.map((scale) => (
+                <li key={scale.id}>
+                  <button
+                    aria-pressed={!creating && scale.id === selectedScale?.id}
+                    className="w-full rounded-md border border-line bg-panel p-3 text-left transition-colors hover:border-teal aria-pressed:border-teal aria-pressed:bg-mint"
+                    onClick={() => {
+                      setCreating(false);
+                      setSelectedId(scale.id);
+                    }}
+                    type="button"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-ink">{scale.name}</span>
+                      {scale.isDefault && (
+                        <span className="rounded bg-teal/10 px-2 py-0.5 text-[10px] font-bold text-teal">
+                          DEFAULT
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted">
+                      {scale.bands.length} bands · used by {scale.policyCount}{" "}
+                      {scale.policyCount === 1 ? "policy" : "policies"}
+                    </span>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </aside>
+
+          <section className="min-w-0">
+            {creating ? (
+              <GradeScaleEditor
+                canManage={canManage}
+                isPending={createMutation.isPending}
+                onCancel={() => setCreating(false)}
+                onSave={(input) => createMutation.mutate(input)}
+              />
+            ) : selectedScale ? (
+              <GradeScaleDetails
+                canManage={canManage}
+                key={selectedScale.id}
+                isPending={
+                  defaultMutation.isPending ||
+                  deleteMutation.isPending ||
+                  copyMutation.isPending
+                }
+                onCopy={() => copyScale(selectedScale)}
+                onDelete={() => removeScale(selectedScale)}
+                onSetDefault={() => defaultMutation.mutate(selectedScale.id)}
+                onUpdate={(input) =>
+                  replaceGradeScale(selectedScale.id, input)
+                }
+                scale={selectedScale}
+              />
+            ) : (
+              <div className="rounded-md border border-dashed border-line bg-panel p-8 text-center text-sm text-muted">
+                Select a grading scale to view and edit it.
+              </div>
+            )}
+          </section>
         </div>
+      )}
+    </main>
+  );
+}
+
+function GradeScaleDetails({
+  canManage,
+  isPending,
+  onCopy,
+  onDelete,
+  onSetDefault,
+  onUpdate,
+  scale,
+}: {
+  canManage: boolean;
+  isPending: boolean;
+  onCopy: () => void;
+  onDelete: () => void;
+  onSetDefault: () => void;
+  onUpdate: (input: { name: string; bands: GradeBandInput[] }) => Promise<GradeScale>;
+  scale: GradeScale;
+}) {
+  const queryClient = useQueryClient();
+  const updateMutation = useMutation({
+    mutationFn: onUpdate,
+    onSuccess: async (updatedScale) => {
+      queryClient.setQueryData<GradeScale[]>(queryKey, (scales) =>
+        scales?.map((item) =>
+          item.id === updatedScale.id ? updatedScale : item,
+        ),
+      );
+      await queryClient.invalidateQueries({ queryKey });
+      toast.success(`Grading scale "${updatedScale.name}" saved.`);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  return (
+    <GradeScaleEditor
+      canManage={canManage}
+      initialScale={scale}
+      isDefault={scale.isDefault}
+      isPending={isPending || updateMutation.isPending}
+      onCopy={onCopy}
+      onDelete={onDelete}
+      onSave={(input) => updateMutation.mutate(input)}
+      onSetDefault={onSetDefault}
+    />
+  );
+}
+
+function GradeScaleEditor({
+  canManage,
+  initialScale,
+  isDefault = false,
+  isPending = false,
+  onCancel,
+  onCopy,
+  onDelete,
+  onSave,
+  onSetDefault,
+}: {
+  canManage: boolean;
+  initialScale?: GradeScale;
+  isDefault?: boolean;
+  isPending?: boolean;
+  onCancel?: () => void;
+  onCopy?: () => void;
+  onDelete?: () => void;
+  onSave: (input: { name: string; bands: GradeBandInput[] }) => void;
+  onSetDefault?: () => void;
+}) {
+  const [name, setName] = useState(initialScale?.name ?? "");
+  const [bands, setBands] = useState<BandDraft[]>(
+    initialScale
+      ? draftBands(initialScale.bands)
+      : [
+          newBand("new-top", {
+            grade: "A",
+            minPercent: "80",
+            gradePoint: "4",
+            description: "Excellent",
+            isPass: true,
+          }),
+          newBand("new-bottom", {
+            grade: "F",
+            minPercent: "0",
+            gradePoint: "0",
+            description: "Needs improvement",
+            isPass: false,
+          }),
+        ],
+  );
+  const [validationError, setValidationError] = useState("");
+
+  function updateBand(key: string, patch: Partial<BandDraft>) {
+    setBands((current) =>
+      current.map((band) => (band.key === key ? { ...band, ...patch } : band)),
+    );
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const cleanedName = name.trim();
+    if (cleanedName.length < 2 || cleanedName.length > 60) {
+      setValidationError("Scale name must be between 2 and 60 characters.");
+      return;
+    }
+    const parsedBands = parseBands(bands);
+    const invalid = validateBands(parsedBands);
+    if (invalid) {
+      setValidationError(invalid);
+      return;
+    }
+    setValidationError("");
+    onSave({ name: cleanedName, bands: parsedBands });
+  }
+
+  return (
+    <form
+      className="space-y-5 rounded-lg border border-line bg-panel p-4 md:p-6"
+      onSubmit={submit}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">
+            {initialScale ? "Edit grading scale" : "Create grading scale"}
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Each band starts at its minimum percentage and ends below the next
+            higher band.
+          </p>
+        </div>
+        {initialScale && (
+          <div className="flex flex-wrap gap-2">
+            {canManage && !isDefault && (
+              <button
+                className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-navy hover:border-teal hover:bg-mint"
+                disabled={isPending}
+                onClick={onSetDefault}
+                type="button"
+              >
+                Set as default
+              </button>
+            )}
+            {canManage && (
+              <button
+                className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-navy hover:border-teal hover:bg-mint"
+                disabled={isPending}
+                onClick={onCopy}
+                type="button"
+              >
+                Copy
+              </button>
+            )}
+            {canManage && !isDefault && initialScale.policyCount === 0 && (
+              <button
+                className="rounded-md border border-coral px-3 py-1.5 text-xs font-semibold text-coral hover:bg-coral/10"
+                disabled={isPending}
+                onClick={onDelete}
+                type="button"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+
+      <label className="block max-w-lg text-sm font-medium text-ink">
+        Scale name
+        <input
+          className={`${inputClass} mt-1 block w-full`}
+          disabled={!canManage || isPending}
+          maxLength={60}
+          minLength={2}
+          onChange={(event) => setName(event.target.value)}
+          required
+          value={name}
+        />
+      </label>
+
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-background text-xs uppercase text-muted">
+            <tr>
+              <th className="px-3 py-2">Grade</th>
+              <th className="px-3 py-2">From %</th>
+              <th className="px-3 py-2">Grade point</th>
+              <th className="px-3 py-2">Description</th>
+              <th className="px-3 py-2">Result</th>
+              {canManage && <th className="px-3 py-2">Action</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {bands.map((band) => (
+              <tr key={band.key}>
+                <td className="px-3 py-2">
+                  <input
+                    aria-label="Grade"
+                    className={`${inputClass} w-20`}
+                    disabled={!canManage || isPending}
+                    maxLength={6}
+                    onChange={(event) =>
+                      updateBand(band.key, { grade: event.target.value })
+                    }
+                    required
+                    value={band.grade}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    aria-label="Minimum percentage"
+                    className={`${inputClass} w-24`}
+                    disabled={!canManage || isPending}
+                    max={100}
+                    min={0}
+                    onChange={(event) =>
+                      updateBand(band.key, { minPercent: event.target.value })
+                    }
+                    required
+                    step="0.01"
+                    type="number"
+                    value={band.minPercent}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    aria-label="Grade point"
+                    className={`${inputClass} w-24`}
+                    disabled={!canManage || isPending}
+                    max={10}
+                    min={0}
+                    onChange={(event) =>
+                      updateBand(band.key, { gradePoint: event.target.value })
+                    }
+                    required
+                    step="0.01"
+                    type="number"
+                    value={band.gradePoint}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    aria-label="Band description"
+                    className={`${inputClass} min-w-36`}
+                    disabled={!canManage || isPending}
+                    maxLength={40}
+                    onChange={(event) =>
+                      updateBand(band.key, { description: event.target.value })
+                    }
+                    required
+                    value={band.description}
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <button
+                    aria-pressed={band.isPass}
+                    className={`rounded-md border px-3 py-2 text-xs font-semibold ${
+                      band.isPass
+                        ? "border-teal/30 bg-teal/10 text-teal"
+                        : "border-coral/30 bg-coral/10 text-coral"
+                    }`}
+                    disabled={!canManage || isPending}
+                    onClick={() =>
+                      updateBand(band.key, { isPass: !band.isPass })
+                    }
+                    type="button"
+                  >
+                    {band.isPass ? "Pass" : "Fail"}
+                  </button>
+                </td>
+                {canManage && (
+                  <td className="px-3 py-2">
+                    <button
+                      className="text-sm font-semibold text-coral disabled:opacity-40"
+                      disabled={isPending || bands.length <= 2}
+                      onClick={() =>
+                        setBands((current) =>
+                          current.filter((item) => item.key !== band.key),
+                        )
+                      }
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {canManage && (
+        <button
+          className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-teal hover:border-teal hover:bg-mint disabled:opacity-50"
+          disabled={isPending || bands.length >= 15}
+          onClick={() =>
+            setBands((current) => [
+              ...current,
+              newBand(`band-${crypto.randomUUID()}`, {
+                grade: "",
+                minPercent: "",
+                gradePoint: "",
+                description: "",
+                isPass: true,
+              }),
+            ])
+          }
+          type="button"
+        >
+          Add grade band
+        </button>
+      )}
+
+      {validationError && (
+        <p className="rounded-md border border-coral p-3 text-sm text-coral" role="alert">
+          {validationError}
+        </p>
+      )}
+
+      <footer className="flex flex-wrap justify-end gap-3 border-t border-line pt-4">
+        {onCancel && (
+          <button
+            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-muted hover:bg-background"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+        )}
+        {canManage && (
+          <button
+            className="rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy disabled:opacity-50"
+            disabled={isPending || bands.length < 2}
+            type="submit"
+          >
+            {isPending
+              ? "Saving…"
+              : initialScale
+                ? "Save grading scale"
+                : "Create grading scale"}
+          </button>
+        )}
+      </footer>
+    </form>
   );
 }

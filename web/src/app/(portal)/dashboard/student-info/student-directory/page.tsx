@@ -1,16 +1,10 @@
-// app/(dashboard)/student-info/students/page.tsx
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/core/session/server";
+import StudentsWorkspace from "@/modules/admissions/StudentsWorkspace";
 
-import { getStudents } from "@/modules/students/student";
-import { StudentTable } from "@/modules/students/student-profile/StudentTable";
-
-
-export default async function StudentsPage() {
-  const students = await getStudents();
-  return (
-    <>
-      <h1 className="text-xl font-semibold text-ink">All students</h1>
-      <p className="mb-5 text-sm text-muted">Search, filter, and open a student profile.</p>
-      <StudentTable students={students} />
-    </>
-  );
+export default async function StudentDirectoryPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/auth");
+  if (!user.permissions.some((permission) => ["students:read", "students:read-all"].includes(permission))) notFound();
+  return <StudentsWorkspace permissions={user.permissions} />;
 }

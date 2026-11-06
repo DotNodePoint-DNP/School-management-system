@@ -1,0 +1,69 @@
+enum PromotionAction {
+    PROMOTE
+    REPEAT
+    GRADUATE
+    HOLD
+}
+
+enum PromotionRunStatus {
+    DRAFT
+    APPLYING
+    APPLIED
+}
+
+enum DecisionBasis {
+    RESULT
+    MANUAL
+}
+
+model PromotionRun {
+    id          String             @id @default(uuid(7)) @db.Uuid
+    fromYearId  String             @map("from_year_id") @db.Uuid
+    toYearId    String             @map("to_year_id") @db.Uuid
+    status      PromotionRunStatus @default(DRAFT)
+    createdById String             @map("created_by_id") @db.Uuid
+    createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+    appliedAt   DateTime?          @map("applied_at") @db.Timestamptz(6)
+
+    fromYear  AcademicYear        @relation("PromotionFrom", fields: [fromYearId], references: [id], onDelete: Restrict)
+    toYear    AcademicYear        @relation("PromotionTo", fields: [toYearId], references: [id], onDelete: Restrict)
+    decisions PromotionDecision[]
+
+    @@unique([fromYearId, toYearId])
+    @@map("promotion_runs")
+}
+
+model PromotionDecision {
+    runId           String          @map("run_id") @db.Uuid
+    /// The student's enrollment in the year that is ending.
+    enrollmentId    String          @map("enrollment_id") @db.Uuid
+    fromClassId     String          @map("from_class_id") @db.Uuid
+    fromSectionId   String          @map("from_section_id") @db.Uuid
+    action          PromotionAction
+    basis           DecisionBasis
+    toClassId       String?         @map("to_class_id") @db.Uuid
+    toSectionId     String?         @map("to_section_id") @db.Uuid
+    /// What the published result said when this decision was proposed.
+    resultStatus    ResultStatus?   @map("result_status")
+    percentage      Decimal?        @db.Decimal(5, 2)
+    classRank       Int?            @map("class_rank")
+    sectionRank     Int?            @map("section_rank")
+    resultVersion   Int?            @map("result_version")
+    note            String?
+    newEnrollmentId String?         @unique @map("new_enrollment_id") @db.Uuid
+    appliedAt       DateTime?       @map("applied_at") @db.Timestamptz(6)
+    updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    run           PromotionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+    enrollment    Enrollment   @relation("DecisionOld", fields: [enrollmentId], references: [id], onDelete: Restrict)
+    newEnrollment Enrollment?  @relation("DecisionNew", fields: [newEnrollmentId], references: [id], onDelete: Restrict)
+    toClass       SchoolClass? @relation("DecisionToClass", fields: [toClassId], references: [id], onDelete: Restrict)
+    // The database guarantees the destination section belongs to the destination class.
+    toSection     Section?     @relation(fields: [toSectionId, toClassId], references: [id, classId], onDelete: Restrict)
+
+    @@id([runId, enrollmentId])
+    @@index([runId, fromClassId, fromSectionId])
+    @@index([enrollmentId])
+    @@map("promotion_decisions")
+}

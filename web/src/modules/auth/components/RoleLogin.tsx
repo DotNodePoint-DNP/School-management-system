@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuthStore } from "@/modules/auth/store/auth-store";
-import { validateIdentifier, validateLoginPassword } from "@/modules/auth/validation";
+import {
+  validateIdentifier,
+  validateLoginPassword,
+} from "@/modules/auth/validation";
 import { toast } from "sonner";
 
 export function RoleLogin() {
@@ -20,7 +23,8 @@ export function RoleLogin() {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
-    const validationError = validateIdentifier(identifier) ?? validateLoginPassword(password);
+    const validationError =
+      validateIdentifier(identifier) ?? validateLoginPassword(password);
     if (validationError) {
       setError(validationError);
       toast.error(validationError);
@@ -34,9 +38,7 @@ export function RoleLogin() {
       });
       toast.success("Signed in successfully. Opening your workspace...");
       router.push(
-        result.user.mustChangePassword
-          ? "/auth/change-password"
-          : "/dashboard",
+        result.user.mustChangePassword ? "/auth/change-password" : "/dashboard",
       );
     } catch (error) {
       const message =
@@ -74,9 +76,7 @@ export function RoleLogin() {
           >
             ← Back to website
           </Link>
-          <span
-            className="mt-[5px] grid h-[58px] w-[58px] place-items-center rounded-full bg-[#dce6e4] text-[23px] text-[#315a5b]"
-          >
+          <span className="mt-[5px] grid h-[58px] w-[58px] place-items-center rounded-full bg-[#dce6e4] text-[23px] text-[#315a5b]">
             <span aria-hidden="true">n</span>
           </span>
           <p className="mb-4 text-[9px] font-semibold uppercase tracking-[.15em] text-[#b27b3d]">
@@ -88,8 +88,8 @@ export function RoleLogin() {
             <em className="text-[#bc8748]">back.</em>
           </h1>
           <p className="max-w-[225px] text-[12px] leading-[1.65] text-[#70817c]">
-            Sign in with the email or phone number and password provided by
-            your school.
+            Sign in with the email or phone number and password provided by your
+            school.
           </p>
           <div className="mt-10 flex max-w-[230px] items-center gap-[9px] border-t border-[#d8dad0] pt-[13px] text-[9px] leading-[1.5] text-[#8a9691]">
             <span className="text-[#bd8847]">✦</span>

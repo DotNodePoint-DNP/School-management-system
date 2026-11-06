@@ -1,328 +1,359 @@
 "use client";
 
-import React, { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { ApiClientError } from "@/lib/api/client";
+import {
+  createSchoolClass,
+  createSchoolSection,
+  deleteSchoolClass,
+  deleteSchoolSection,
+  listSchoolClasses,
+  updateSchoolClass,
+  updateSchoolSection,
+  type SchoolClass,
+  type SchoolSection,
+} from "@/modules/settings/services/academic-setup";
 
-// --- TYPES ---
-export interface SectionConfig {
-  id: string;
-  name: string; // Dynamic: e.g. "A", "B", "Rose", "Morning"
-  capacity: number;
-  roomNumber?: string;
+const classesQueryKey = ["classes"];
+const inputClass =
+  "rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal disabled:opacity-60";
+
+function requestError(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    return error.status === 403
+      ? "You do not have permission to manage classes and sections."
+      : error.message;
+  }
+  return error instanceof Error ? error.message : "The request failed.";
 }
 
-export interface GradeConfig {
-  id: string;
-  name: string; // e.g. "Nursery", "Grade 10"
-  category: "Pre-Primary" | "Primary" | "Lower Secondary" | "Secondary" | "Higher Secondary";
-  stream?: string; // Optional for Grades 11-12
-  sections: SectionConfig[];
-}
+export default function ClassSectionManager({
+  canManage = true,
+}: {
+  canManage?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const classesQuery = useQuery({
+    queryKey: classesQueryKey,
+    queryFn: listSchoolClasses,
+  });
+  const [name, setName] = useState("");
+  const [sortOrder, setSortOrder] = useState("");
 
-// --- INITIAL DEFAULT TEMPLATES ---
-const DEFAULT_GRADES: GradeConfig[] = [
-  { id: "g-nursery", name: "Nursery", category: "Pre-Primary", sections: [{ id: "s-n1", name: "A", capacity: 25 }, { id: "s-n2", name: "B", capacity: 25 }] },
-  { id: "g-lkg", name: "LKG", category: "Pre-Primary", sections: [{ id: "s-l1", name: "A", capacity: 25 }, { id: "s-l2", name: "B", capacity: 25 }] },
-  { id: "g-ukg", name: "UKG", category: "Pre-Primary", sections: [{ id: "s-u1", name: "A", capacity: 30 }, { id: "s-u2", name: "B", capacity: 30 }] },
-  ...Array.from({ length: 10 }, (_, i) => ({
-    id: `g-grade-${i + 1}`,
-    name: `Grade ${i + 1}`,
-    category: (i + 1 <= 5 ? "Primary" : i + 1 <= 8 ? "Lower Secondary" : "Secondary") as GradeConfig["category"],
-    sections: [
-      { id: `s-g${i + 1}-a`, name: "A", capacity: 40 },
-      { id: `s-g${i + 1}-b`, name: "B", capacity: 40 },
-    ],
-  })),
-  {
-    id: "g-grade-11-sci",
-    name: "Grade 11",
-    category: "Higher Secondary",
-    stream: "Science",
-    sections: [{ id: "s-g11s-a", name: "A", capacity: 45 }],
-  },
-  {
-    id: "g-grade-11-mgmt",
-    name: "Grade 11",
-    category: "Higher Secondary",
-    stream: "Management",
-    sections: [{ id: "s-g11m-a", name: "A", capacity: 50 }],
-  },
-  {
-    id: "g-grade-12-sci",
-    name: "Grade 12",
-    category: "Higher Secondary",
-    stream: "Science",
-    sections: [{ id: "s-g12s-a", name: "A", capacity: 45 }],
-  },
-  {
-    id: "g-grade-12-mgmt",
-    name: "Grade 12",
-    category: "Higher Secondary",
-    stream: "Management",
-    sections: [{ id: "s-g12m-a", name: "A", capacity: 50 }],
-  },
-];
+  const createMutation = useMutation({
+    mutationFn: createSchoolClass,
+    onSuccess: async (schoolClass) => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      setName("");
+      setSortOrder("");
+      toast.success(`Class "${schoolClass.name}" created.`);
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteSchoolClass,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      toast.success("Class deleted.");
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
 
-export default function ClassSectionManager() {
-  const [grades, setGrades] = useState<GradeConfig[]>(DEFAULT_GRADES);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [globalDefaultCap, setGlobalDefaultCap] = useState<number>(40);
-  const [isSaved, setIsSaved] = useState<boolean>(false);
+  function submitClass(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createMutation.mutate({
+      name: name.trim(),
+      sortOrder: Number(sortOrder),
+    });
+  }
 
-  const categories = ["All", "Pre-Primary", "Primary", "Lower Secondary", "Secondary", "Higher Secondary"];
-  const filteredGrades = selectedCategory === "All" ? grades : grades.filter((g) => g.category === selectedCategory);
+  function removeClass(schoolClass: SchoolClass) {
+    if (!canManage) return;
+    if (window.confirm(`Delete "${schoolClass.name}" and its sections?`)) {
+      deleteMutation.mutate(schoolClass.id);
+    }
+  }
 
-  const totalCapacity = grades.reduce(
-    (acc, g) => acc + g.sections.reduce((sAcc, s) => sAcc + s.capacity, 0),
-    0
+  if (classesQuery.isPending) {
+    return <p className="p-6 text-sm text-muted" role="status">Loading classes and sections…</p>;
+  }
+  if (classesQuery.isError) {
+    return (
+      <div className="rounded-lg border border-coral p-5 text-sm text-coral" role="alert">
+        <p>{requestError(classesQuery.error)}</p>
+        <button className="mt-2 underline" onClick={() => void classesQuery.refetch()} type="button">Try again</button>
+      </div>
+    );
+  }
+
+  const activeClasses = classesQuery.data.filter((schoolClass) => schoolClass.isActive).length;
+  const sectionCount = classesQuery.data.reduce((total, schoolClass) => total + schoolClass.sections.length, 0);
+  const totalCapacity = classesQuery.data.reduce(
+    (total, schoolClass) =>
+      total +
+      schoolClass.sections.reduce(
+        (classTotal, section) => classTotal + (section.isActive ? section.capacity ?? 0 : 0),
+        0,
+      ),
+    0,
   );
-  const totalSections = grades.reduce((acc, g) => acc + g.sections.length, 0);
-
-  // --- HANDLERS ---
-  
-  // Dynamic Section Name Editing
-  const handleSectionNameChange = (gradeId: string, sectionId: string, newName: string) => {
-    setGrades((prev) =>
-      prev.map((g) => {
-        if (g.id !== gradeId) return g;
-        return {
-          ...g,
-          sections: g.sections.map((s) => (s.id === sectionId ? { ...s, name: newName } : s)),
-        };
-      })
-    );
-  };
-
-  // Capacity Editing
-  const handleCapacityChange = (gradeId: string, sectionId: string, newCapacity: number) => {
-    setGrades((prev) =>
-      prev.map((g) => {
-        if (g.id !== gradeId) return g;
-        return {
-          ...g,
-          sections: g.sections.map((s) => (s.id === sectionId ? { ...s, capacity: Math.max(1, newCapacity) } : s)),
-        };
-      })
-    );
-  };
-
-  // Add Section with Default Sequential Character (A, B, C...)
-  const handleAddSection = (gradeId: string) => {
-    setGrades((prev) =>
-      prev.map((g) => {
-        if (g.id !== gradeId) return g;
-        
-        // Auto-generate next character default name
-        const defaultCharName = String.fromCharCode(65 + g.sections.length); // A, B, C...
-        const newSection: SectionConfig = {
-          id: `s-${gradeId}-${Date.now()}`,
-          name: defaultCharName,
-          capacity: globalDefaultCap,
-        };
-        return { ...g, sections: [...g.sections, newSection] };
-      })
-    );
-  };
-
-  const handleRemoveSection = (gradeId: string, sectionId: string) => {
-    setGrades((prev) =>
-      prev.map((g) => {
-        if (g.id !== gradeId) return g;
-        return { ...g, sections: g.sections.filter((s) => s.id !== sectionId) };
-      })
-    );
-  };
-
-  const handleApplyGlobalCapacity = () => {
-    setGrades((prev) =>
-      prev.map((g) => ({
-        ...g,
-        sections: g.sections.map((s) => ({ ...s, capacity: globalDefaultCap })),
-      }))
-    );
-  };
-
-  const handleSaveConfiguration = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-    console.log("Saved Structure:", JSON.stringify(grades, null, 2));
-  };
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      {/* Header Banner */}
-      <div className="flex flex-col gap-4 border-b border-line pb-6 md:flex-row md:items-center md:justify-between">
+    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-ink">Class & Section Structure</h1>
-          <p className="mt-1 text-xs font-medium text-muted">
-            Define academic grades, dynamic section names (A/B/C or custom names), and maximum student intake capacities.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Class &amp; section setup</h1>
+          <p className="mt-1 text-sm text-muted">Configure the classes and sections used by the school.</p>
         </div>
+      </header>
 
-        <div className="flex items-center gap-3">
-          {isSaved && (
-            <span className="text-xs font-bold text-teal animate-pulse">
-              ✓ Configuration Saved
-            </span>
-          )}
-          <button
-            onClick={handleSaveConfiguration}
-            className="rounded-lg bg-teal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-panel shadow-sm transition-all hover:bg-navy focus:outline-none focus:ring-2 focus:ring-teal"
-          >
-            Save Structure
+      {!canManage && (
+        <p className="rounded-md border border-amber/60 bg-panel p-3 text-sm text-ink">
+          You can view the setup, but need the classes management permission to make changes.
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryCard label="Active classes" value={activeClasses} />
+        <SummaryCard label="Sections configured" value={sectionCount} />
+        <SummaryCard label="Active section capacity" value={totalCapacity.toLocaleString()} />
+      </div>
+
+      {canManage && (
+        <form className="grid gap-3 rounded-lg border border-line bg-panel p-4 md:grid-cols-[1fr_180px_auto]" onSubmit={submitClass}>
+          <label className="text-sm font-medium text-ink">
+            New class
+            <input className={`${inputClass} mt-1 block w-full`} maxLength={60} onChange={(event) => setName(event.target.value)} placeholder="e.g. Grade 6" required value={name} />
+          </label>
+          <label className="text-sm font-medium text-ink">
+            Sort order
+            <input className={`${inputClass} mt-1 block w-full`} max={1000} min={1} onChange={(event) => setSortOrder(event.target.value)} required type="number" value={sortOrder} />
+          </label>
+          <button className="self-end rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-navy disabled:opacity-50" disabled={createMutation.isPending} type="submit">
+            {createMutation.isPending ? "Adding…" : "Add class"}
           </button>
-        </div>
-      </div>
+        </form>
+      )}
 
-      {/* Analytics KPI Dashboard */}
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-line bg-panel p-4 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">Total Active Classes</span>
-          <p className="mt-1 text-2xl font-black text-navy">{grades.length}</p>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">Total Sections Configured</span>
-          <p className="mt-1 text-2xl font-black text-navy">{totalSections}</p>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4 shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">Total Student Intake Capacity</span>
-          <p className="mt-1 text-2xl font-black text-teal">{totalCapacity.toLocaleString()} Seats</p>
-        </div>
-      </div>
-
-      {/* Controls Bar */}
-      <div className="mt-8 flex flex-col gap-4 rounded-xl border border-line bg-panel p-4 md:flex-row md:items-center md:justify-between">
-        {/* Category Filters */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
-                selectedCategory === cat
-                  ? "bg-navy text-panel shadow-xs"
-                  : "bg-background text-muted hover:border-navy hover:text-ink"
-              }`}
-            >
-              {cat}
-            </button>
+      {!classesQuery.data.length ? (
+        <p className="rounded-lg border border-dashed border-line bg-panel p-8 text-center text-sm text-muted">No classes configured yet.</p>
+      ) : (
+        <div className="space-y-4">
+          {classesQuery.data.map((schoolClass) => (
+            <ClassCard
+              canManage={canManage}
+              key={schoolClass.id}
+              onDelete={() => removeClass(schoolClass)}
+              schoolClass={schoolClass}
+            />
           ))}
         </div>
+      )}
+    </main>
+  );
+}
 
-        {/* Global Capacity Override Tool */}
-        <div className="flex items-center gap-2 border-t border-line pt-3 md:border-t-0 md:pt-0">
-          <span className="text-xs font-bold text-ink whitespace-nowrap">Default Capacity:</span>
-          <input
-            type="number"
-            min="1"
-            value={globalDefaultCap}
-            onChange={(e) => setGlobalDefaultCap(parseInt(e.target.value) || 0)}
-            className="w-16 rounded-md border border-line bg-panel px-2 py-1 text-center text-xs font-bold text-ink focus:border-teal focus:outline-none"
-          />
-          <button
-            onClick={handleApplyGlobalCapacity}
-            className="rounded-md border border-line bg-background px-3 py-1 text-xs font-bold text-ink hover:bg-line transition-all"
-          >
-            Apply to All
-          </button>
+function SummaryCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-lg border border-line bg-panel p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-teal">{value}</p>
+    </div>
+  );
+}
+
+function ClassCard({
+  canManage,
+  onDelete,
+  schoolClass,
+}: {
+  canManage: boolean;
+  onDelete: () => void;
+  schoolClass: SchoolClass;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(schoolClass.name);
+  const [sortOrder, setSortOrder] = useState(String(schoolClass.sortOrder));
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newCapacity, setNewCapacity] = useState("");
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateSchoolClass(schoolClass.id, {
+        name: name.trim(),
+        sortOrder: Number(sortOrder),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      toast.success(`Class "${name.trim()}" updated.`);
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+  const activeMutation = useMutation({
+    mutationFn: (isActive: boolean) =>
+      updateSchoolClass(schoolClass.id, { isActive }),
+    onSuccess: async (_result, isActive) => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      toast.success(isActive ? "Class activated." : "Class deactivated.");
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+  const addSectionMutation = useMutation({
+    mutationFn: () =>
+      createSchoolSection(schoolClass.id, {
+        name: newSectionName.trim(),
+        ...(newCapacity ? { capacity: Number(newCapacity) } : {}),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      setNewSectionName("");
+      setNewCapacity("");
+      toast.success("Section added.");
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (sectionId: string) => deleteSchoolSection(schoolClass.id, sectionId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      toast.success("Section deleted.");
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+
+  function submitSection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    addSectionMutation.mutate();
+  }
+
+  return (
+    <section className="space-y-4 rounded-lg border border-line bg-panel p-4 md:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs font-semibold text-muted">
+            Class name
+            <input className={`${inputClass} mt-1 block min-w-48`} disabled={!canManage} maxLength={60} onChange={(event) => setName(event.target.value)} value={name} />
+          </label>
+          <label className="text-xs font-semibold text-muted">
+            Sort order
+            <input className={`${inputClass} mt-1 block w-28`} disabled={!canManage} max={1000} min={1} onChange={(event) => setSortOrder(event.target.value)} type="number" value={sortOrder} />
+          </label>
+          {canManage && (
+            <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-navy hover:border-teal hover:bg-mint disabled:opacity-50" disabled={updateMutation.isPending || !name.trim() || !sortOrder} onClick={() => updateMutation.mutate()} type="button">
+              Save class
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${schoolClass.isActive ? "bg-teal/10 text-teal" : "bg-background text-muted"}`}>
+            {schoolClass.isActive ? "Active" : "Inactive"}
+          </span>
+          {canManage && (
+            <>
+              <button className="text-sm font-medium text-teal hover:underline disabled:opacity-50" disabled={activeMutation.isPending} onClick={() => activeMutation.mutate(!schoolClass.isActive)} type="button">
+                {schoolClass.isActive ? "Deactivate" : "Activate"}
+              </button>
+              <button className="text-sm font-medium text-coral hover:underline" onClick={onDelete} type="button">Delete</button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Grade Configurations List */}
-      <div className="mt-6 space-y-4">
-        {filteredGrades.map((grade) => {
-          const gradeTotalCap = grade.sections.reduce((acc, s) => acc + s.capacity, 0);
-
-          return (
-            <div
-              key={grade.id}
-              className="rounded-xl border border-line bg-panel p-5 transition-all hover:border-navy/30 hover:shadow-xs"
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                {/* Grade Meta */}
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy/10 text-xs font-black text-navy">
-                    {grade.name.replace(/[^0-9]/g, "") || grade.name.substring(0, 2)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-ink">{grade.name}</h3>
-                      {grade.stream && (
-                        <span className="rounded bg-teal/10 px-2 py-0.5 text-[10px] font-bold text-teal">
-                          {grade.stream}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-medium text-muted">{grade.category}</p>
-                  </div>
-                </div>
-
-                {/* Section Cards */}
-                <div className="flex flex-1 flex-wrap items-center gap-3 md:justify-end">
-                  {grade.sections.map((sec) => (
-                    <div
-                      key={sec.id}
-                      className="flex items-center gap-2 rounded-lg border border-line bg-background px-3 py-2 shadow-2xs"
-                    >
-                      {/* Dynamic Editable Section Name */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Sec:</span>
-                        <input
-                          type="text"
-                          value={sec.name}
-                          onChange={(e) =>
-                            handleSectionNameChange(grade.id, sec.id, e.target.value)
-                          }
-                          placeholder="A"
-                          className="w-12 rounded border border-line/80 bg-panel px-1.5 py-0.5 text-center text-xs font-black text-navy uppercase focus:border-teal focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Section Capacity */}
-                      <div className="flex items-center gap-1 border-l border-line/60 pl-2">
-                        <span className="text-[10px] font-bold text-muted">Cap:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={sec.capacity}
-                          onChange={(e) =>
-                            handleCapacityChange(grade.id, sec.id, parseInt(e.target.value) || 0)
-                          }
-                          className="w-12 rounded border border-line/80 bg-panel px-1 py-0.5 text-center text-xs font-bold text-ink focus:border-teal focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Remove Section */}
-                      {grade.sections.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveSection(grade.id, sec.id)}
-                          className="ml-1 text-muted hover:text-coral transition-colors"
-                          title="Delete Section"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Add Section Button */}
-                  <button
-                    onClick={() => handleAddSection(grade.id)}
-                    className="flex items-center gap-1 rounded-lg border border-dashed border-line px-3 py-2 text-xs font-bold text-teal hover:border-teal hover:bg-teal/5 transition-all"
-                  >
-                    + Add Section
-                  </button>
-                </div>
-
-                {/* Total Class Seat Badge */}
-                <div className="border-t border-line/60 pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-muted">Total Capacity</span>
-                  <span className="text-xs font-black text-ink">{gradeTotalCap} Seats</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-2 border-t border-line pt-3">
+        <h3 className="text-sm font-semibold text-ink">Sections</h3>
+        {schoolClass.sections.length ? (
+          <ul className="space-y-2">
+            {schoolClass.sections.map((section) => (
+              <SectionRow
+                canManage={canManage}
+                classId={schoolClass.id}
+                key={section.id}
+                onDelete={() => {
+                  if (window.confirm(`Delete section "${section.name}"?`)) {
+                    deleteMutation.mutate(section.id);
+                  }
+                }}
+                section={section}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted">No sections configured for this class.</p>
+        )}
       </div>
-    </div>
+
+      {canManage && schoolClass.isActive && (
+        <form className="grid gap-3 border-t border-line pt-3 sm:grid-cols-[1fr_180px_auto]" onSubmit={submitSection}>
+          <label className="text-xs font-semibold text-muted">
+            New section
+            <input className={`${inputClass} mt-1 block w-full`} maxLength={20} onChange={(event) => setNewSectionName(event.target.value)} placeholder="e.g. A, Blue, Morning" required value={newSectionName} />
+          </label>
+          <label className="text-xs font-semibold text-muted">
+            Capacity (optional)
+            <input className={`${inputClass} mt-1 block w-full`} max={500} min={1} onChange={(event) => setNewCapacity(event.target.value)} type="number" value={newCapacity} />
+          </label>
+          <button className="self-end rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-navy disabled:opacity-50" disabled={addSectionMutation.isPending} type="submit">
+            {addSectionMutation.isPending ? "Adding…" : "Add section"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+function SectionRow({
+  canManage,
+  classId,
+  onDelete,
+  section,
+}: {
+  canManage: boolean;
+  classId: string;
+  onDelete: () => void;
+  section: SchoolSection;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(section.name);
+  const [capacity, setCapacity] = useState(section.capacity?.toString() ?? "");
+  const updateMutation = useMutation({
+    mutationFn: (isActive?: boolean) =>
+      updateSchoolSection(classId, section.id, {
+        name: name.trim(),
+        capacity: capacity ? Number(capacity) : null,
+        ...(isActive === undefined ? {} : { isActive }),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: classesQueryKey });
+      toast.success(`Section "${name.trim()}" updated.`);
+    },
+    onError: (error) => toast.error(requestError(error)),
+  });
+
+  return (
+    <li className="grid items-end gap-3 rounded-md border border-line bg-background p-3 sm:grid-cols-[1fr_180px_auto_auto]">
+      <label className="text-xs font-semibold text-muted">
+        Section name
+        <input className={`${inputClass} mt-1 block w-full`} disabled={!canManage} maxLength={20} onChange={(event) => setName(event.target.value)} value={name} />
+      </label>
+      <label className="text-xs font-semibold text-muted">
+        Capacity
+        <input className={`${inputClass} mt-1 block w-full`} disabled={!canManage} max={500} min={1} onChange={(event) => setCapacity(event.target.value)} type="number" value={capacity} />
+      </label>
+      {canManage && (
+        <>
+          <button className="rounded-md border border-line px-3 py-2 text-sm font-semibold text-navy hover:border-teal hover:bg-mint disabled:opacity-50" disabled={updateMutation.isPending || !name.trim()} onClick={() => updateMutation.mutate()} type="button">
+            Save
+          </button>
+          <div className="flex items-center gap-2">
+            <button className="text-sm font-medium text-teal hover:underline disabled:opacity-50" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate(!section.isActive)} type="button">
+              {section.isActive ? "Deactivate" : "Activate"}
+            </button>
+            <button className="text-sm font-medium text-coral hover:underline" onClick={onDelete} type="button">Delete</button>
+          </div>
+        </>
+      )}
+    </li>
   );
 }

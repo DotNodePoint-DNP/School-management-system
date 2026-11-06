@@ -1,14 +1,5 @@
-// src/app/dashboard/settings/page.tsx
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
-import { findModule, sectionHref } from "@/modules/dashboard/components/Navigation";
+import { redirect } from "next/navigation";
 
-export default async function SettingsIndexPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
-
-  const navModule = findModule(user.permissions, "Admission-Enrollment");
-  if (!navModule) notFound();
-
-  redirect(sectionHref(navModule, navModule.sections[0]));
+export default function AdmissionEnrollmentIndexPage() {
+  redirect("/dashboard/Admission-Enrollment/overview");
 }

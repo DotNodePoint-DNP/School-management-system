@@ -24,6 +24,7 @@ import { ExamsModule } from './modules/exams/exams.module.js';
 import { StorageModule } from './infra/storage/storage.module.js';
 import { SchoolModule } from './modules/school/school.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
+import { PromotionModule } from './modules/promotion/promotion.module.js';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
     StorageModule,
     SchoolModule,
     DocumentsModule,
+    PromotionModule
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'
