@@ -172,9 +172,13 @@ export class FiscalYearsService {
           this.assertRange(newStart, newEnd);
           await this.assertNoOverlap(tx, newStart, newEnd, id);
 
-          if ((await tx.invoice.count({ where: { fiscalYearId: id } })) > 0) {
+          if (
+            (await tx.invoice.count({ where: { fiscalYearId: id } })) +
+              (await tx.payment.count({ where: { fiscalYearId: id } })) >
+            0
+          ) {
             throw new ConflictException(
-              'Invoices already exist in this fiscal year, so its dates can no longer change',
+              'Invoices or receipts already exist in this fiscal year, so its dates can no longer change',
             );
           }
           data.startDate = isoToDate(newStart);

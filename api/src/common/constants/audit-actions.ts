@@ -145,5 +145,10 @@ export const AUDIT_ACTIONS = [
   'adjustment.requested',
   'adjustment.approved',
   'adjustment.rejected',
+
+  'payment.recorded',
+  'payment.reversed',
+  'credit.applied',
+  'credit.refunded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

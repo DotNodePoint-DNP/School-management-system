@@ -95,5 +95,11 @@ export const PERMISSIONS = [
   'fees:invoice-void',
   'fees:adjust',
   'fees:adjust-approve',
+
+  'fees:payment-record',
+  'fees:payment-backdate',
+  'fees:payment-reverse',
+  'fees:payment-reverse-closed',
+  'fees:refund-approve',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

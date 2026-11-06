@@ -3,13 +3,16 @@ import { toPaisa } from '../../common/utils/money.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
-type Db = Pick<Prisma.TransactionClient, 'invoice' | 'invoiceAdjustment'>;
+type Db = Pick<
+  Prisma.TransactionClient,
+  'invoice' | 'invoiceAdjustment' | 'paymentAllocation'
+>;
 
 export interface Balance {
   netPaisa: number;
   /** Approved credit notes. */
   adjustedPaisa: number;
-  /** Payments applied to this invoice. Always 0 until payments are built. */
+  /** Payments applied to this invoice, not counting reversed payments. */
   paidPaisa: number;
   /** 0 for a voided invoice. */
   outstandingPaisa: number;
@@ -18,7 +21,7 @@ export interface Balance {
 
 export type InvoiceStatus = 'VOID' | 'SETTLED' | 'PAID' | 'PARTIAL' | 'OPEN';
 
-/** SETTLED: nothing owed because of credit notes. PAID: nothing owed because of payments. */
+/** SETTLED: nothing owed because of credit notes alone. PAID: nothing owed, and payments were made. */
 export function invoiceStatus(
   b: Balance,
   dueDate: string,
@@ -37,13 +40,14 @@ export function invoiceStatus(
 export class InvoiceBalanceService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** The one place that defines how much is still owed on an invoice. */
   async load(
     ids: string[],
     db: Db = this.prisma,
   ): Promise<Map<string, Balance>> {
     const out = new Map<string, Balance>();
     if (ids.length === 0) return out;
-    const [invoices, adjustments] = await Promise.all([
+    const [invoices, adjustments, allocations] = await Promise.all([
       db.invoice.findMany({
         where: { id: { in: ids } },
         select: {
@@ -56,23 +60,34 @@ export class InvoiceBalanceService {
         where: { invoiceId: { in: ids }, decision: { approved: true } },
         select: { invoiceId: true, amount: true },
       }),
+      db.paymentAllocation.findMany({
+        where: { invoiceId: { in: ids }, payment: { reversal: { is: null } } },
+        select: { invoiceId: true, amount: true },
+      }),
     ]);
-    const adjusted = new Map<string, number>();
-    for (const a of adjustments)
-      adjusted.set(
-        a.invoiceId,
-        (adjusted.get(a.invoiceId) ?? 0) + toPaisa(a.amount.toNumber()),
-      );
-    // 7C: sum the payments applied to each invoice here, and subtract them from `outstandingPaisa`.
+    const sum = (
+      rows: { invoiceId: string; amount: { toNumber(): number } }[],
+    ): Map<string, number> => {
+      const map = new Map<string, number>();
+      for (const r of rows)
+        map.set(
+          r.invoiceId,
+          (map.get(r.invoiceId) ?? 0) + toPaisa(r.amount.toNumber()),
+        );
+      return map;
+    };
+    const adjusted = sum(adjustments);
+    const paid = sum(allocations);
     for (const inv of invoices) {
       const net = toPaisa(inv.netAmount.toNumber());
       const adj = adjusted.get(inv.id) ?? 0;
+      const pay = paid.get(inv.id) ?? 0;
       const voided = inv.void !== null;
       out.set(inv.id, {
         netPaisa: net,
         adjustedPaisa: adj,
-        paidPaisa: 0,
-        outstandingPaisa: voided ? 0 : net - adj,
+        paidPaisa: pay,
+        outstandingPaisa: voided ? 0 : net - adj - pay,
         voided,
       });
     }

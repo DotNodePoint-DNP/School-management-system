@@ -134,10 +134,11 @@ model Student {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardians   StudentGuardian[]
-  enrollments Enrollment[]
-  documents   StudentDocument[]
-  invoices    Invoice[]
+  guardians      StudentGuardian[]
+  enrollments    Enrollment[]
+  documents      StudentDocument[]
+  invoices       Invoice[]
+  creditPayments Payment[]         @relation("CreditStudent")
 
   @@index([lastName, firstName])
   @@index([dateOfBirth])
@@ -161,6 +162,7 @@ model Guardian {
 
   user     User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
   students StudentGuardian[]
+  payments Payment[]
 
   @@index([phone])
   @@index([email])
