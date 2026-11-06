@@ -171,7 +171,7 @@ export class FiscalYearsService {
         ) {
           this.assertRange(newStart, newEnd);
           await this.assertNoOverlap(tx, newStart, newEnd, id);
-          
+
           if ((await tx.invoice.count({ where: { fiscalYearId: id } })) > 0) {
             throw new ConflictException(
               'Invoices already exist in this fiscal year, so its dates can no longer change',
@@ -277,5 +277,37 @@ export class FiscalYearsService {
     )
       throw new ConflictException('These dates overlap another fiscal year');
     throw error;
+  }
+
+  /** The open fiscal year covering a date. Used when issuing a document. */
+  async openFor(isoDate: string): Promise<{ id: string; label: string }> {
+    const row = await this.prisma.fiscalYear.findFirst({
+      where: {
+        startDate: { lte: isoToDate(isoDate) },
+        endDate: { gte: isoToDate(isoDate) },
+      },
+      select: { id: true, label: true, status: true },
+    });
+    if (!row)
+      throw new ConflictException(
+        'No fiscal year covers today. Create the fiscal year before billing.',
+      );
+    if (row.status !== 'OPEN')
+      throw new ConflictException(`Fiscal year ${row.label} is closed`);
+    return { id: row.id, label: row.label };
+  }
+
+  /** A shared lock on an open fiscal year: closing it waits for us, and we are refused once it is closed. */
+  async lockOpen(tx: Tx, id: string): Promise<{ label: string }> {
+    const rows = await tx.$queryRaw<
+      { label: string; status: string }[]
+    >`SELECT label, status::text AS status FROM fiscal_years WHERE id = ${id}::uuid FOR SHARE`;
+    const row = rows[0];
+    if (!row) throw new NotFoundException('Fiscal year not found');
+    if (row.status !== 'OPEN')
+      throw new ConflictException(
+        `Fiscal year ${row.label} is closed, so its invoices can no longer be changed`,
+      );
+    return { label: row.label };
   }
 }

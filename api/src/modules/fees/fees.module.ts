@@ -18,6 +18,9 @@ import { InvoicesController } from './invoices.controller.js';
 import { InvoiceBalanceService } from './invoice-balance.service.js';
 import { InvoiceGenerationService } from './invoice-generation.service.js';
 import { InvoicesService } from './invoices.service.js';
+import { InvoiceCorrectionsController } from './invoice-corrections.controller.js';
+import { InvoiceLifecycleService } from './invoice-lifecycle.service.js';
+import { AdjustmentsService } from './adjustments.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -27,6 +30,7 @@ import { InvoicesService } from './invoices.service.js';
     BillingController,
     StudentFeesController,
     InvoicesController,
+    InvoiceCorrectionsController,
   ],
   providers: [
     FiscalYearsService,
@@ -41,6 +45,8 @@ import { InvoicesService } from './invoices.service.js';
     InvoiceBalanceService,
     InvoiceGenerationService,
     InvoicesService,
+    InvoiceLifecycleService,
+    AdjustmentsService,
   ],
   exports: [
     FiscalYearsService,
@@ -55,6 +61,8 @@ import { InvoicesService } from './invoices.service.js';
     InvoiceBalanceService,
     InvoiceGenerationService,
     InvoicesService,
+    InvoiceLifecycleService,
+    AdjustmentsService,
   ],
 })
 export class FeesModule {}

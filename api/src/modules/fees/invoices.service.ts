@@ -9,6 +9,7 @@ import { displayName } from '../../common/utils/person.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { ListInvoicesQueryDto } from './dto/invoice-query.dto.js';
+import type { AuthUser } from '../auth/auth.types.js';
 import {
   invoiceStatus,
   InvoiceBalanceService,
@@ -176,7 +177,7 @@ export class InvoicesService {
     return rows.map((r) => toItem(r, balances.get(r.id) as Balance, today));
   }
 
-  async get(id: string) {
+  async get(id: string, actor: AuthUser) {
     const row = await this.prisma.invoice.findUnique({
       where: { id },
       select: {
@@ -242,6 +243,11 @@ export class InvoicesService {
     const name = new Map(users.map((u) => [u.id, u.fullName] as const));
     const balance = (await this.balances.load([id])).get(id) as Balance;
 
+    // A waiver's reason can describe a family's finances, so only the people who handle credit notes see it.
+    const seesReasons =
+      actor.permissions.includes('fees:adjust') ||
+      actor.permissions.includes('fees:adjust-approve');
+
     return {
       ...toItem(row, balance, todayIso()),
       replacesInvoiceId: row.replacesInvoiceId,
@@ -268,7 +274,7 @@ export class InvoicesService {
         id: a.id,
         kind: a.kind,
         amount: a.amount.toNumber(),
-        reason: a.reason,
+        reason: seesReasons ? a.reason : null,
         requestedAt: a.requestedAt.toISOString(),
         requestedBy: name.get(a.requestedById) ?? null,
         status:
@@ -280,7 +286,7 @@ export class InvoicesService {
         decidedBy: a.decision
           ? (name.get(a.decision.decidedById) ?? null)
           : null,
-        decisionNote: a.decision?.note ?? null,
+        decisionNote: seesReasons ? (a.decision?.note ?? null) : null,
       })),
     };
   }
