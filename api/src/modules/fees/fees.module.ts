@@ -23,6 +23,11 @@ import { InvoiceLifecycleService } from './invoice-lifecycle.service.js';
 import { AdjustmentsService } from './adjustments.service.js';
 import { PaymentsService } from './payments.service.js';
 import { PaymentsController } from './payments.controller.js';
+import { PaymentCorrectionsController } from './payment-corrections.controller.js';
+import { CreditService } from './credit.service.js';
+import { PaymentCorrectionsService } from './payment-corrections.service.js';
+import { StatementsService } from './statements.service.js';
+import { ReceiptsService } from './receipts.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -34,6 +39,7 @@ import { PaymentsController } from './payments.controller.js';
     InvoicesController,
     InvoiceCorrectionsController,
     PaymentsController,
+    PaymentCorrectionsController,
   ],
   providers: [
     FiscalYearsService,
@@ -51,6 +57,10 @@ import { PaymentsController } from './payments.controller.js';
     InvoiceLifecycleService,
     AdjustmentsService,
     PaymentsService,
+    CreditService,
+    PaymentCorrectionsService,
+    StatementsService,
+    ReceiptsService,
   ],
   exports: [
     FiscalYearsService,
@@ -68,6 +78,10 @@ import { PaymentsController } from './payments.controller.js';
     InvoiceLifecycleService,
     AdjustmentsService,
     PaymentsService,
+    ReceiptsService,
+    CreditService,
+    PaymentCorrectionsService,
+    StatementsService,
   ],
 })
 export class FeesModule {}

@@ -310,7 +310,7 @@ export class FiscalYearsService {
     if (!row) throw new NotFoundException('Fiscal year not found');
     if (row.status !== 'OPEN')
       throw new ConflictException(
-        `Fiscal year ${row.label} is closed, so its invoices can no longer be changed`,
+        `Fiscal year ${row.label} is closed, so records dated in it can no longer be changed`,
       );
     return { label: row.label };
   }

@@ -34,6 +34,7 @@ import {
   InvoiceBalanceService,
   invoiceStatus,
 } from './invoice-balance.service.js';
+import { CreditService } from './credit.service.js';
 
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
 
@@ -79,7 +80,16 @@ const SELECT = {
     },
   },
   reversal: { select: { reason: true, reversedById: true, reversedAt: true } },
-  refunds: { select: { amount: true } },
+  refunds: {
+    orderBy: { createdAt: 'asc' as const },
+    select: {
+      id: true,
+      amount: true,
+      method: true,
+      reference: true,
+      createdAt: true,
+    },
+  },
 } satisfies Prisma.PaymentSelect;
 type Row = Prisma.PaymentGetPayload<{ select: typeof SELECT }>;
 
@@ -96,6 +106,13 @@ export interface PaymentView {
   receivedBy: string | null;
   note: string | null;
   status: 'ACTIVE' | 'REVERSED';
+  refunds: {
+    id: string;
+    amount: number;
+    method: string;
+    reference: string | null;
+    at: string;
+  }[];
   allocations: {
     invoice: {
       id: string;
@@ -126,6 +143,7 @@ export class PaymentsService {
     private readonly audit: AuditService,
     private readonly fiscalYears: FiscalYearsService,
     private readonly balances: InvoiceBalanceService,
+    private readonly credit: CreditService,
   ) {}
 
   // ---------------------------------------------------------------- recording
@@ -505,6 +523,7 @@ export class PaymentsService {
     });
     const balances = await this.balances.load(invoices.map((i) => i.id));
     const today = todayIso();
+    const held = await this.credit.held(studentIds);
 
     const perStudent = students.map((s) => {
       const open = invoices
@@ -540,6 +559,7 @@ export class PaymentsService {
           sectionName: enrollment?.section.name ?? null,
         },
         invoices: open,
+        credit: fromPaisa(held.get(s.id)?.totalPaisa ?? 0),
         outstanding: fromPaisa(
           open.reduce((n, i) => n + toPaisa(i.outstanding), 0),
         ),
@@ -549,6 +569,9 @@ export class PaymentsService {
       students: perStudent,
       totalOutstanding: fromPaisa(
         perStudent.reduce((n, s) => n + toPaisa(s.outstanding), 0),
+      ),
+      totalCredit: fromPaisa(
+        perStudent.reduce((n, s) => n + toPaisa(s.credit), 0),
       ),
     };
   }
@@ -609,6 +632,13 @@ export class PaymentsService {
         })),
         allocated: fromPaisa(allocated),
         refunded: fromPaisa(refunded),
+        refunds: r.refunds.map((f) => ({
+          id: f.id,
+          amount: f.amount.toNumber(),
+          method: f.method,
+          reference: f.reference,
+          at: f.createdAt.toISOString(),
+        })),
         unapplied: r.reversal
           ? 0
           : fromPaisa(toPaisa(r.amount.toNumber()) - allocated - refunded),

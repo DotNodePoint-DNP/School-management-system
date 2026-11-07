@@ -150,5 +150,6 @@ export const AUDIT_ACTIONS = [
   'payment.reversed',
   'credit.applied',
   'credit.refunded',
+  'payment.receipt_printed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
