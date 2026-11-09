@@ -102,5 +102,9 @@ export const PERMISSIONS = [
   'fees:payment-reverse-closed',
   'fees:refund-approve',
   'fees:print',
+
+  'fees:day-close',
+  'fees:day-reopen',
+  'fees:reports',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

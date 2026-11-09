@@ -294,7 +294,7 @@ export class FiscalYearsService {
     });
     if (!row)
       throw new ConflictException(
-        'No fiscal year covers today. Create the fiscal year before billing.',
+        `No fiscal year covers ${isoDate}. Create the fiscal year first.`,
       );
     if (row.status !== 'OPEN')
       throw new ConflictException(`Fiscal year ${row.label} is closed`);

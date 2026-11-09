@@ -35,6 +35,7 @@ import {
   invoiceStatus,
 } from './invoice-balance.service.js';
 import { CreditService } from './credit.service.js';
+import { DayLockService } from './day-lock.service.js';
 
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
 
@@ -144,6 +145,7 @@ export class PaymentsService {
     private readonly fiscalYears: FiscalYearsService,
     private readonly balances: InvoiceBalanceService,
     private readonly credit: CreditService,
+    private readonly days: DayLockService,
   ) {}
 
   // ---------------------------------------------------------------- recording
@@ -221,6 +223,7 @@ export class PaymentsService {
       }
 
       await this.fiscalYears.lockOpen(tx, fiscalYear.id);
+      await this.days.assertOpen(tx, paidOn);
       if (reference) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payref:${dto.method}:${reference}`}))`;
         const used = await tx.payment.findFirst({

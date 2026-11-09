@@ -23,6 +23,7 @@ import {
   InvoiceBalanceService,
 } from './invoice-balance.service.js';
 import { PaymentsService, type PaymentView } from './payments.service.js';
+import { DayLockService } from './day-lock.service.js';
 
 const TX = { maxWait: 15_000, timeout: 60_000 } as const;
 const nepalDate = (d: Date): string =>
@@ -44,6 +45,7 @@ export class PaymentCorrectionsService {
     private readonly balances: InvoiceBalanceService,
     private readonly credit: CreditService,
     private readonly payments: PaymentsService,
+    private readonly days: DayLockService,
   ) {}
 
   // ---------------------------------------------------------------- reversal
@@ -76,6 +78,7 @@ export class PaymentCorrectionsService {
         );
       }
       await this.fiscalYears.lockOpen(tx, found.fiscalYearId);
+      await this.days.assertOpen(tx, today);
       await tx.$queryRaw`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`;
       const pay = await tx.payment.findUniqueOrThrow({
         where: { id },
@@ -358,6 +361,7 @@ export class PaymentCorrectionsService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.fiscalYears.lockOpen(tx, fiscalYear.id);
+      await this.days.assertOpen(tx, todayIso());
       const found = await tx.$queryRaw<
         { id: string }[]
       >`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`;

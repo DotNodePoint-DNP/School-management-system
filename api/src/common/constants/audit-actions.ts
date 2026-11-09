@@ -151,5 +151,8 @@ export const AUDIT_ACTIONS = [
   'credit.applied',
   'credit.refunded',
   'payment.receipt_printed',
+
+  'day.closed',
+  'day.reopened',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

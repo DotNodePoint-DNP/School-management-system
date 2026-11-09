@@ -428,3 +428,54 @@ model CreditRefund {
     @@index([paymentId])
     @@map("credit_refunds")
 }
+
+/// One row per close. Reopening a day adds a reopen record; closing it again adds a new version.
+model DayClose {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  date         DateTime @db.Date
+  version      Int
+  /// Cash received that day, less cash paid out.
+  expectedCash Decimal  @map("expected_cash") @db.Decimal(12, 2)
+  countedCash  Decimal  @map("counted_cash") @db.Decimal(12, 2)
+  cashPaidOut  Decimal  @map("cash_paid_out") @db.Decimal(12, 2)
+  variance     Decimal  @db.Decimal(12, 2)
+  receiptCount Int      @map("receipt_count")
+  /// What was received, by payment method: [{ method, count, amount }].
+  methodTotals Json     @map("method_totals")
+  note         String?
+  closedById   String   @map("closed_by_id") @db.Uuid
+  closedAt     DateTime @default(now()) @map("closed_at") @db.Timestamptz(6)
+
+  lines  DayCloseLine[]
+  reopen DayCloseReopen?
+
+  @@unique([date, version])
+  @@index([date])
+  @@map("day_closes")
+}
+
+model DayCloseLine {
+  dayCloseId   String  @map("day_close_id") @db.Uuid
+  cashierId    String  @map("cashier_id") @db.Uuid
+  /// This cashier's cash receipts for the day.
+  expectedCash Decimal @map("expected_cash") @db.Decimal(12, 2)
+  countedCash  Decimal @map("counted_cash") @db.Decimal(12, 2)
+  variance     Decimal @db.Decimal(12, 2)
+  note         String?
+
+  dayClose DayClose @relation(fields: [dayCloseId], references: [id], onDelete: Restrict)
+
+  @@id([dayCloseId, cashierId])
+  @@map("day_close_lines")
+}
+
+model DayCloseReopen {
+  dayCloseId   String   @id @map("day_close_id") @db.Uuid
+  reason       String
+  reopenedById String   @map("reopened_by_id") @db.Uuid
+  reopenedAt   DateTime @default(now()) @map("reopened_at") @db.Timestamptz(6)
+
+  dayClose DayClose @relation(fields: [dayCloseId], references: [id], onDelete: Restrict)
+
+  @@map("day_close_reopens")
+}

@@ -28,6 +28,11 @@ import { CreditService } from './credit.service.js';
 import { PaymentCorrectionsService } from './payment-corrections.service.js';
 import { StatementsService } from './statements.service.js';
 import { ReceiptsService } from './receipts.service.js';
+import { DayCloseController } from './day-close.controller.js';
+import { DayLockService } from './day-lock.service.js';
+import { ReportsService } from './reports.service.js';
+import { DayCloseService } from './day-close.service.js';
+import { DayFiguresService } from './day-figures.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -40,6 +45,7 @@ import { ReceiptsService } from './receipts.service.js';
     InvoiceCorrectionsController,
     PaymentsController,
     PaymentCorrectionsController,
+    DayCloseController,
   ],
   providers: [
     FiscalYearsService,
@@ -61,6 +67,10 @@ import { ReceiptsService } from './receipts.service.js';
     PaymentCorrectionsService,
     StatementsService,
     ReceiptsService,
+    DayLockService,
+    DayCloseService,
+    ReportsService,
+    DayFiguresService,
   ],
   exports: [
     FiscalYearsService,
@@ -82,6 +92,10 @@ import { ReceiptsService } from './receipts.service.js';
     CreditService,
     PaymentCorrectionsService,
     StatementsService,
+    DayLockService,
+    DayCloseService,
+    ReportsService,
+    DayFiguresService,
   ],
 })
 export class FeesModule {}
