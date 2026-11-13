@@ -178,6 +178,19 @@ async function main(): Promise<void> {
           });
         }
 
+        await tx.feeHead.upsert({
+          where: { code: 'FINE' },
+          update: {},
+          create: {
+            code: 'FINE',
+            name: 'Late fine',
+            nameNp: 'ढिलाइ जरिवाना',
+            frequency: 'AD_HOC',
+            perStudent: false,
+            sortOrder: 90,
+          },
+        });
+
         // Seed School Classes (Nursery, LKG, UKG, Grade 1 to 10)
         const classesToSeed = [
           { name: 'Nursery', sortOrder: 1 },

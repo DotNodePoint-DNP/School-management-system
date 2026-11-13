@@ -154,5 +154,8 @@ export const AUDIT_ACTIONS = [
 
   'day.closed',
   'day.reopened',
+
+  'late_fee.policy_set',
+  'late_fee.run',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

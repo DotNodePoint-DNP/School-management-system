@@ -106,5 +106,8 @@ export const PERMISSIONS = [
   'fees:day-close',
   'fees:day-reopen',
   'fees:reports',
+
+  'fees:late-fee-manage',
+  'fees:late-fee-apply',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

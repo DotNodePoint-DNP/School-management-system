@@ -103,22 +103,26 @@ export class FeeHeadsService {
         );
       }
       if (dto.isActive === false && current.isActive) {
-        const [openStructures, openAssignments] = await Promise.all([
-          tx.feeStructureLine.count({
-            where: {
-              feeHeadId: id,
-              academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
-            },
-          }),
-          tx.studentFeeAssignment.count({
-            where: {
-              feeHeadId: id,
-              enrollment: {
+        const [openStructures, openAssignments, lateFeePolicyCount] =
+          await Promise.all([
+            tx.feeStructureLine.count({
+              where: {
+                feeHeadId: id,
                 academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
               },
-            },
-          }),
-        ]);
+            }),
+            tx.studentFeeAssignment.count({
+              where: {
+                feeHeadId: id,
+                enrollment: {
+                  academicYear: { status: { in: ['PLANNED', 'ACTIVE'] } },
+                },
+              },
+            }),
+            tx.lateFeePolicy.count({
+              where: { feeHeadId: id },
+            }),
+          ]);
 
         if (openStructures > 0)
           throw new ConflictException(
@@ -128,6 +132,11 @@ export class FeeHeadsService {
         if (openAssignments > 0)
           throw new ConflictException(
             'This head is still assigned to students in open academic years.',
+          );
+
+        if (lateFeePolicyCount > 0)
+          throw new ConflictException(
+            'This head is used by the late fee policy',
           );
       }
 
@@ -173,17 +182,29 @@ export class FeeHeadsService {
         select: { code: true },
       });
 
-      const [structureCount, assignmentCount, discountCount, invoiceCount] =
-        await Promise.all([
-          tx.feeStructureLine.count({ where: { feeHeadId: id } }),
-          tx.studentFeeAssignment.count({ where: { feeHeadId: id } }),
-          tx.studentDiscount.count({ where: { feeHeadId: id } }),
-          tx.invoiceLine.count({ where: { feeHeadId: id } })
-        ]);
+      const [
+        structureCount,
+        assignmentCount,
+        discountCount,
+        invoiceCount,
+        lateFeePolicyCount,
+      ] = await Promise.all([
+        tx.feeStructureLine.count({ where: { feeHeadId: id } }),
+        tx.studentFeeAssignment.count({ where: { feeHeadId: id } }),
+        tx.studentDiscount.count({ where: { feeHeadId: id } }),
+        tx.invoiceLine.count({ where: { feeHeadId: id } }),
+        tx.lateFeePolicy.count({ where: { feeHeadId: id } }),
+      ]);
 
-      if (structureCount > 0 || assignmentCount > 0 || discountCount > 0 || invoiceCount > 0) {
+      if (
+        structureCount > 0 ||
+        assignmentCount > 0 ||
+        discountCount > 0 ||
+        invoiceCount > 0 ||
+        lateFeePolicyCount > 0
+      ) {
         throw new ConflictException(
-          'This head is used in fee structures, assignments, discounts, or invoices. Deactivate it instead of deleting it.',
+          'This head is used in fee structures, assignments, discounts, invoices, or late fee policies. Deactivate it instead of deleting it.',
         );
       }
 

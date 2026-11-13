@@ -33,6 +33,11 @@ import { DayLockService } from './day-lock.service.js';
 import { ReportsService } from './reports.service.js';
 import { DayCloseService } from './day-close.service.js';
 import { DayFiguresService } from './day-figures.service.js';
+import { DuesReportsController } from './dues-reports.controller.js';
+import { LateFeesController } from './late-fees.controller.js';
+import { LateFeesService } from './late-fees.service.js';
+import { BillingReportService } from './billing-report.service.js';
+import { DuesReportService } from './dues-report.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -46,6 +51,8 @@ import { DayFiguresService } from './day-figures.service.js';
     PaymentsController,
     PaymentCorrectionsController,
     DayCloseController,
+    DuesReportsController,
+    LateFeesController,
   ],
   providers: [
     FiscalYearsService,
@@ -71,6 +78,9 @@ import { DayFiguresService } from './day-figures.service.js';
     DayCloseService,
     ReportsService,
     DayFiguresService,
+    DuesReportService,
+    BillingReportService,
+    LateFeesService,
   ],
   exports: [
     FiscalYearsService,
@@ -96,6 +106,9 @@ import { DayFiguresService } from './day-figures.service.js';
     DayCloseService,
     ReportsService,
     DayFiguresService,
+    DuesReportService,
+    BillingReportService,
+    LateFeesService,
   ],
 })
 export class FeesModule {}
