@@ -38,6 +38,8 @@ import { LateFeesController } from './late-fees.controller.js';
 import { LateFeesService } from './late-fees.service.js';
 import { BillingReportService } from './billing-report.service.js';
 import { DuesReportService } from './dues-report.service.js';
+import { FeeRemindersController } from './fee-reminders.controller.js';
+import { FeeRemindersService } from './fee-reminders.service.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -53,6 +55,7 @@ import { DuesReportService } from './dues-report.service.js';
     DayCloseController,
     DuesReportsController,
     LateFeesController,
+    FeeRemindersController,
   ],
   providers: [
     FiscalYearsService,
@@ -81,6 +84,7 @@ import { DuesReportService } from './dues-report.service.js';
     DuesReportService,
     BillingReportService,
     LateFeesService,
+    FeeRemindersService,
   ],
   exports: [
     FiscalYearsService,

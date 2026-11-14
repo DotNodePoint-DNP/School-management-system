@@ -159,5 +159,6 @@ export const AUDIT_ACTIONS = [
   'late_fee.run',
   'invoice.printed',
   'fees.documents_printed',
+  'fee_reminders.sent',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

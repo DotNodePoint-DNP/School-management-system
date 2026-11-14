@@ -544,3 +544,48 @@ model LateFine {
     @@index([runId])
     @@map("late_fines")
 }
+
+
+enum ReminderChannel {
+  SMS
+  EMAIL
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model FeeReminderRun {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  sentById       String   @map("sent_by_id") @db.Uuid
+  minDaysOverdue Int      @map("min_days_overdue")
+  cooldownDays   Int      @map("cooldown_days")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  reminders FeeReminder[]
+
+  @@map("fee_reminder_runs")
+}
+
+/// One row per family per message. It holds no message text, phone number or email.
+model FeeReminder {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  runId        String          @map("run_id") @db.Uuid
+  guardianId   String          @map("guardian_id") @db.Uuid
+  channel      ReminderChannel
+  status       ReminderStatus  @default(PENDING)
+  amount       Decimal         @db.Decimal(12, 2)
+  studentCount Int             @map("student_count")
+  error        String?
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  run      FeeReminderRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  guardian Guardian       @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+
+  @@index([guardianId, createdAt])
+  @@index([runId])
+  @@map("fee_reminders")
+}

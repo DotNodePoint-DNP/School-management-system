@@ -109,6 +109,7 @@ export const PERMISSIONS = [
 
   'fees:late-fee-manage',
   'fees:late-fee-apply',
-  'fees:print-signed'
+  'fees:print-signed',
+  'fees:remind',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
