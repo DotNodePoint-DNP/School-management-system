@@ -383,6 +383,7 @@ export class DuesReportService {
   }
 
   private async candidateIds(f: OpenFilter, db: Db): Promise<string[]> {
+    if (f.studentIds && f.studentIds.length === 0) return []; // an empty list means nobody, never everybody
     const conditions: Prisma.Sql[] = [
       Prisma.sql`NOT EXISTS (SELECT 1 FROM invoice_voids v WHERE v.invoice_id = i.id)`,
       Prisma.sql`i.net_amount >

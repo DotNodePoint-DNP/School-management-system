@@ -157,5 +157,7 @@ export const AUDIT_ACTIONS = [
 
   'late_fee.policy_set',
   'late_fee.run',
+  'invoice.printed',
+  'fees.documents_printed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
