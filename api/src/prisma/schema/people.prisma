@@ -134,9 +134,11 @@ model Student {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardians   StudentGuardian[]
-  enrollments Enrollment[]
-  documents   StudentDocument[]
+  guardians      StudentGuardian[]
+  enrollments    Enrollment[]
+  documents      StudentDocument[]
+  invoices       Invoice[]
+  creditPayments Payment[]         @relation("CreditStudent")
 
   @@index([lastName, firstName])
   @@index([dateOfBirth])
@@ -158,8 +160,10 @@ model Guardian {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user     User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  students StudentGuardian[]
+  user         User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  students     StudentGuardian[]
+  payments     Payment[]
+  feeReminders FeeReminder[]
 
   @@index([phone])
   @@index([email])
@@ -211,16 +215,20 @@ model Enrollment {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  student            Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  academicYear       AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  student              Student                      @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  academicYear         AcademicYear                 @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
   // The database guarantees the section belongs to the class.
-  section            Section                @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
-  subjectChoices     StudentSubjectChoice[]
-  attendanceRecords  AttendanceRecord[]
-  marks              Mark[]
-  remarks            ReportRemark[]
-  promotionDecisions PromotionDecision[]    @relation("DecisionOld")
-  promotionResult    PromotionDecision?     @relation("DecisionNew")
+  section              Section                      @relation(fields: [sectionId, classId], references: [id, classId], onDelete: Restrict)
+  subjectChoices       StudentSubjectChoice[]
+  attendanceRecords    AttendanceRecord[]
+  marks                Mark[]
+  remarks              ReportRemark[]
+  promotionDecisions   PromotionDecision[]          @relation("DecisionOld")
+  promotionResult      PromotionDecision?           @relation("DecisionNew")
+  feeAssignments       StudentFeeAssignment[]
+  feeAssignmentPeriods StudentFeeAssignmentPeriod[]
+  discounts            StudentDiscount[]
+  invoices             Invoice[]
 
   @@unique([id, academicYearId, classId])
   @@unique([studentId, academicYearId])

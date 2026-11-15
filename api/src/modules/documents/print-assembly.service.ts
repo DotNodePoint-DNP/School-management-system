@@ -16,8 +16,8 @@ export class PrintAssemblyService {
   constructor(private readonly letterhead: LetterheadService) {}
 
   async envelope(opts: {
-    academicYearId: string;
-    sectionIds: string[];
+    academicYearId?: string;
+    sectionIds?: string[];
     issuedOn: string;
     forceLine: boolean;
     slots?: string[];
@@ -49,9 +49,9 @@ export class PrintAssemblyService {
 
     const warnings = [...lh.warnings];
     const classTeachers: Record<string, PrintSignatory | null> = {};
-    for (const sectionId of opts.sectionIds) {
+    for (const sectionId of opts.sectionIds ?? []) {
       const ct = await this.letterhead.classTeacherSignature(
-        opts.academicYearId,
+        opts.academicYearId as string,
         sectionId,
         opts.forceLine,
         warnings,

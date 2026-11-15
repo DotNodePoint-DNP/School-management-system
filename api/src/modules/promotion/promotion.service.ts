@@ -15,6 +15,9 @@ import type {
   BuildProposalDto,
   UpdateDecisionDto,
 } from './dto/promotion.dto.js';
+import { DuesReportService } from '../fees/dues-report.service.js';
+import { chunked } from '../../common/utils/chunked.js';
+import { fromPaisa } from '../../common/utils/money.js';
 
 type Tx = Prisma.TransactionClient;
 // Remote database round trips are slow, so plans get generous transaction limits.
@@ -77,6 +80,7 @@ export interface PromotionSummary {
     resultVersion: number | null;
     stale: boolean;
     counts: Omit<ClassCounts, 'stale'>;
+    dues: { students: number; outstanding: number };
   }[];
   readiness: ReadinessItem[];
   /** Present only in the response to building or refreshing the plan. */
@@ -87,6 +91,7 @@ export interface PromotionSummary {
     resultChanged: number;
     removed: number;
   };
+  dues: { students: number; outstanding: number };
 }
 
 const DECISION_SELECT = {
@@ -145,6 +150,7 @@ export class PromotionService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly years: AcademicYearsService,
+    private readonly dues: DuesReportService,
   ) {}
 
   // ---------------------------------------------------------------- build or refresh the plan
@@ -409,6 +415,7 @@ export class PromotionService {
           toSectionId: true,
           appliedAt: true,
           resultVersion: true,
+          enrollmentId: true,
         },
       }),
     ]);
@@ -507,6 +514,19 @@ export class PromotionService {
         c.stale += 1;
     }
 
+    const owed = await this.duesByEnrollment(
+      decisions.map((d) => d.enrollmentId),
+    );
+    const duesBy = new Map<string, { students: number; paisa: number }>();
+    for (const d of decisions) {
+      const paisa = owed.get(d.enrollmentId) ?? 0;
+      if (paisa <= 0) continue;
+      const entry = duesBy.get(d.fromClassId) ?? { students: 0, paisa: 0 };
+      entry.students += 1;
+      entry.paisa += paisa;
+      duesBy.set(d.fromClassId, entry);
+    }
+
     const readiness: ReadinessItem[] = [];
     const flag = (
       code: string,
@@ -555,6 +575,15 @@ export class PromotionService {
           'NEXT_CLASS_INACTIVE',
           false,
           `${className(id)}'s next class "${cls.nextClass.name}" is inactive, so passing students are held.`,
+          id,
+        );
+
+      const due = duesBy.get(id);
+      if (due)
+        flag(
+          'DUES',
+          false,
+          `${className(id)}: ${due.students} student(s) still owe NPR ${fromPaisa(due.paisa)} in fees. This is a warning only; nothing is held back.`,
           id,
         );
     }
@@ -629,6 +658,10 @@ export class PromotionService {
             resultVersion: latest.get(id)?.version ?? null,
             stale: stale > 0,
             counts: rest,
+            dues: {
+              students: duesBy.get(id)?.students ?? 0,
+              outstanding: fromPaisa(duesBy.get(id)?.paisa ?? 0),
+            },
           };
         })
         .sort(
@@ -636,6 +669,12 @@ export class PromotionService {
             a.sortOrder - b.sortOrder || a.className.localeCompare(b.className),
         ),
       readiness,
+      dues: {
+        students: [...duesBy.values()].reduce((n, d) => n + d.students, 0),
+        outstanding: fromPaisa(
+          [...duesBy.values()].reduce((n, d) => n + d.paisa, 0),
+        ),
+      },
     };
   }
 
@@ -889,6 +928,10 @@ export class PromotionService {
       where: { runId, ...where },
       select: DECISION_SELECT,
     });
+    const owed = await this.duesByEnrollment(
+      decisions.map((d) => d.enrollmentId),
+    );
+
     const classIds = [...new Set(decisions.map((d) => d.fromClassId))];
     const latest = await this.latestRuns(this.prisma, fromYearId, classIds);
     const present = (d: DecisionRow) => ({
@@ -904,6 +947,7 @@ export class PromotionService {
       toSection: d.toSection,
       note: d.note,
       applied: d.appliedAt !== null,
+      outstanding: fromPaisa(owed.get(d.enrollmentId) ?? 0),
       result:
         d.resultVersion === null && d.resultStatus === null
           ? null
@@ -930,5 +974,33 @@ export class PromotionService {
             a.p.name.localeCompare(b.p.name),
       )
       .map((x) => x.p);
+  }
+
+  /** What each enrollment's student owes in total, from any year, in paisa. A warning only: it never blocks a plan. */
+  private async duesByEnrollment(
+    enrollmentIds: string[],
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (enrollmentIds.length === 0) return out;
+    const studentOf = new Map<string, string>();
+    for (const part of chunked(enrollmentIds, 2000)) {
+      const rows = await this.prisma.enrollment.findMany({
+        where: { id: { in: part } },
+        select: { id: true, studentId: true },
+      });
+      for (const r of rows) studentOf.set(r.id, r.studentId);
+    }
+    const owedByStudent = new Map<string, number>();
+    for (const part of chunked([...new Set(studentOf.values())], 1000)) {
+      for (const inv of await this.dues.openInvoices({ studentIds: part })) {
+        owedByStudent.set(
+          inv.studentId,
+          (owedByStudent.get(inv.studentId) ?? 0) + inv.outstandingPaisa,
+        );
+      }
+    }
+    for (const [enrollmentId, studentId] of studentOf)
+      out.set(enrollmentId, owedByStudent.get(studentId) ?? 0);
+    return out;
   }
 }

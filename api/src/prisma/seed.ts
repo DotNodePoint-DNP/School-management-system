@@ -117,6 +117,107 @@ async function main(): Promise<void> {
           data: [{ userId: admin.id, roleId: adminRole.id }],
           skipDuplicates: true,
         });
+
+        // fee heads seeding
+        if ((await tx.feeHead.count()) === 0) {
+          const heads: [
+            string,
+            string,
+            string,
+            'ONE_TIME' | 'MONTHLY' | 'TERMLY' | 'YEARLY' | 'AD_HOC',
+            boolean,
+          ][] = [
+            ['ADM', 'Admission fee', 'भर्ना शुल्क', 'ONE_TIME', false],
+            ['REG', 'Registration fee', 'दर्ता शुल्क', 'ONE_TIME', false],
+            [
+              'TUI',
+              'Monthly tuition fee',
+              'मासिक शिक्षण शुल्क',
+              'MONTHLY',
+              false,
+            ],
+            ['ANN', 'Annual fee', 'वार्षिक शुल्क', 'YEARLY', false],
+            ['EXM', 'Examination fee', 'परीक्षा शुल्क', 'TERMLY', false],
+            [
+              'LAB',
+              'Computer/lab fee',
+              'कम्प्युटर/प्रयोगशाला शुल्क',
+              'MONTHLY',
+              false,
+            ],
+            ['LIB', 'Library fee', 'पुस्तकालय शुल्क', 'YEARLY', false],
+            [
+              'SPT',
+              'Sports/extracurricular fee',
+              'खेलकुद/अतिरिक्त क्रियाकलाप शुल्क',
+              'YEARLY',
+              false,
+            ],
+            ['TRN', 'Transportation fee', 'यातायात शुल्क', 'MONTHLY', true],
+            ['HST', 'Hostel fee', 'छात्रावास शुल्क', 'MONTHLY', true],
+            [
+              'UNI',
+              'Uniform, books and diary',
+              'पोसाक, किताब र डायरी',
+              'AD_HOC',
+              false,
+            ],
+            ['OTH', 'Other charges', 'अन्य शुल्क', 'AD_HOC', false],
+          ];
+          await tx.feeHead.createMany({
+            data: heads.map(
+              ([code, name, nameNp, frequency, perStudent], index) => ({
+                code,
+                name,
+                nameNp,
+                frequency,
+                perStudent,
+                sortOrder: index + 1,
+              }),
+            ),
+          });
+        }
+
+        await tx.feeHead.upsert({
+          where: { code: 'FINE' },
+          update: {},
+          create: {
+            code: 'FINE',
+            name: 'Late fine',
+            nameNp: 'ढिलाइ जरिवाना',
+            frequency: 'AD_HOC',
+            perStudent: false,
+            sortOrder: 90,
+          },
+        });
+
+        // Seed School Classes (Nursery, LKG, UKG, Grade 1 to 10)
+        const classesToSeed = [
+          { name: 'Nursery', sortOrder: 1 },
+          { name: 'LKG', sortOrder: 2 },
+          { name: 'UKG', sortOrder: 3 },
+          { name: 'Grade 1', sortOrder: 4 },
+          { name: 'Grade 2', sortOrder: 5 },
+          { name: 'Grade 3', sortOrder: 6 },
+          { name: 'Grade 4', sortOrder: 7 },
+          { name: 'Grade 5', sortOrder: 8 },
+          { name: 'Grade 6', sortOrder: 9 },
+          { name: 'Grade 7', sortOrder: 10 },
+          { name: 'Grade 8', sortOrder: 11 },
+          { name: 'Grade 9', sortOrder: 12 },
+          { name: 'Grade 10', sortOrder: 13 },
+        ];
+
+        for (const cls of classesToSeed) {
+          await tx.schoolClass.upsert({
+            where: { name: cls.name },
+            update: { sortOrder: cls.sortOrder },
+            create: {
+              name: cls.name,
+              sortOrder: cls.sortOrder,
+            },
+          });
+        }
       },
       {
         maxWait: 50000, // default: 2000 ms

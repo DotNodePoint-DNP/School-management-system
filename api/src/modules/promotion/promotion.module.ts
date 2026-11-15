@@ -5,9 +5,10 @@ import { PromotionApplyController } from './promotion-apply.controller.js';
 import { PromotionApplyService } from './promotion-apply.service.js';
 import { PromotionController } from './promotion.controller.js';
 import { PromotionService } from './promotion.service.js';
+import { FeesModule } from '../fees/fees.module.js';
 
 @Module({
-  imports: [AcademicYearsModule, StudentsModule],
+  imports: [AcademicYearsModule, StudentsModule, FeesModule],
   controllers: [PromotionController, PromotionApplyController],
   providers: [PromotionService, PromotionApplyService],
   exports: [PromotionService, PromotionApplyService],

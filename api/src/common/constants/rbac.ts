@@ -82,5 +82,34 @@ export const PERMISSIONS = [
   'promotion:read',
   'promotion:manage',
   'promotion:apply',
+
+  'fees:read',
+  'fees:structure-manage',
+  'fees:fiscal-manage',
+
+  'fees:assign',
+  'fees:discount-create',
+  'fees:discount-approve',
+
+  'fees:invoice-generate',
+  'fees:invoice-void',
+  'fees:adjust',
+  'fees:adjust-approve',
+
+  'fees:payment-record',
+  'fees:payment-backdate',
+  'fees:payment-reverse',
+  'fees:payment-reverse-closed',
+  'fees:refund-approve',
+  'fees:print',
+
+  'fees:day-close',
+  'fees:day-reopen',
+  'fees:reports',
+
+  'fees:late-fee-manage',
+  'fees:late-fee-apply',
+  'fees:print-signed',
+  'fees:remind',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
