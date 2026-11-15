@@ -139,18 +139,20 @@ export class ClassesService {
         where: { id },
         select: { name: true },
       });
-      const [sections, curriculum, resultPolicies, nextClasses] =
+      const [sections, curriculum, resultPolicies, nextClasses , feeStructureLine] =
         await Promise.all([
           tx.section.count({ where: { classId: id } }),
           tx.classSubject.count({ where: { classId: id } }),
           tx.resultPolicy.count({ where: { classId: id } }),
           tx.schoolClass.count({ where: { nextClassId: id } }),
+          tx.feeStructureLine.count({ where: { classId: id } })
         ]);
       if (
         sections > 0 ||
         curriculum > 0 ||
         resultPolicies > 0 ||
-        nextClasses > 0
+        nextClasses > 0 ||
+        feeStructureLine > 0
       ) {
         throw new ConflictException(
           'This class has sections ,curriculum records or result policies. Deactivate it instead of deleting it.',

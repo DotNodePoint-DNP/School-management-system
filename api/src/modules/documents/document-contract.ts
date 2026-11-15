@@ -1,7 +1,8 @@
 import type { Letterhead } from '../school/letterhead.service.js';
 
 /** The shape the web app prints. Add 'MARKSHEET' | 'CERTIFICATE' | 'ID_CARD' here when those documents exist. */
-export type PrintDocumentKind = 'REPORT_CARD';
+export type PrintDocumentKind =
+  'REPORT_CARD' | 'RECEIPT' | 'INVOICE' | 'STATEMENT' | 'FEE_VOUCHER';
 
 export interface PrintSignatory {
   /** PRINCIPAL, EXAM_CONTROLLER, ACCOUNTANT, OTHER:<label>, or CLASS_TEACHER. */
@@ -16,9 +17,10 @@ export interface PrintSignatory {
 }
 
 export interface SkippedDocument {
-  enrollmentId: string;
+  enrollmentId?: string;
+  studentId?: string;
   admissionNo: string | null;
-  reason: 'INCOMPLETE';
+  reason: string;
 }
 
 /** Everything shared by all documents of a batch, so images are sent once. */
