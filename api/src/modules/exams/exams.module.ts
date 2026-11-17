@@ -16,6 +16,8 @@ import { ResultsController } from './results.controller.js';
 import { ResultsService } from './results.service.js';
 import { RemarksController } from './remarks.controller.js';
 import { RemarksService } from './remarks.service.js';
+import { ExamReleaseService } from './exam-release.service.js';
+import { ExamReleaseController } from './exam-release.controller.js';
 
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
@@ -26,7 +28,8 @@ import { RemarksService } from './remarks.service.js';
     MarksController,
     ExamWorkflowController,
     ResultsController,
-    RemarksController
+    RemarksController,
+    ExamReleaseController,
   ],
   providers: [
     GradeScalesService,
@@ -36,7 +39,8 @@ import { RemarksService } from './remarks.service.js';
     MarksAccessService,
     ExamWorkflowService,
     ResultsService,
-    RemarksService
+    RemarksService,
+    ExamReleaseService,
   ],
   exports: [
     GradeScalesService,
@@ -44,7 +48,8 @@ import { RemarksService } from './remarks.service.js';
     ResultPoliciesService,
     MarksService,
     ExamWorkflowService,
-    ResultsService
+    ResultsService,
+    ExamReleaseService,
   ],
 })
 export class ExamsModule {}
