@@ -20,6 +20,8 @@ export class GuardianLinkDto {
   @IsIn(RELATIONSHIPS) relationship!: Relationship;
   @IsBoolean() isPrimary!: boolean;
   @IsOptional() @IsBoolean() isEmergencyContact?: boolean;
+  /** false switches this guardian's portal view of the child off (custody or safety cases). Needs guardians:manage. */
+  @IsOptional() @IsBoolean() portalAccess?: boolean;
 }
 
 export class ReplaceStudentGuardiansDto {

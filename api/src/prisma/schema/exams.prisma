@@ -45,13 +45,15 @@ model Exam {
     createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    academicYear AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-    term         Term?             @relation(fields: [termId], references: [id], onDelete: Restrict)
-    subjects     ExamSubject[]
-    components   ResultComponent[]
-    lockedAt     DateTime?         @map("locked_at") @db.Timestamptz(6)
-    publishedAt  DateTime?         @map("published_at") @db.Timestamptz(6)
-    markSheets   MarkSheet[]
+    academicYear    AcademicYear      @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+    term            Term?             @relation(fields: [termId], references: [id], onDelete: Restrict)
+    subjects        ExamSubject[]
+    components      ResultComponent[]
+    lockedAt        DateTime?         @map("locked_at") @db.Timestamptz(6)
+    publishedAt     DateTime?         @map("published_at") @db.Timestamptz(6)
+    markSheets      MarkSheet[]
+    /// Parents can see this exam's results from this date (Nepal date). null: not released to parents.
+    parentReleaseOn DateTime?         @map("parent_release_on") @db.Date
 
     @@unique([academicYearId, name])
     @@unique([academicYearId, sequence])
