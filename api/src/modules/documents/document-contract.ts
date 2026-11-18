@@ -39,6 +39,8 @@ export interface PrintEnvelope {
   /** By section id. null when the section has no class teacher assigned. */
   classTeachers: Record<string, PrintSignatory | null>;
   warnings: string[];
+  /** Set for copies a parent prints from the portal: blank signature lines, not an office duplicate. */
+  variant?: 'PARENT_COPY';
 }
 
 export interface PrintBatch<

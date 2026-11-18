@@ -56,4 +56,14 @@ export class PortalAccessService {
       );
     return enrollment;
   }
+
+  /** The children this parent may currently see (links the school has not switched off). */
+  async childIds(actor: AuthUser): Promise<string[]> {
+    const guardian = await this.guardianOf(actor);
+    const links = await this.prisma.studentGuardian.findMany({
+      where: { guardianId: guardian.id, portalAccess: true },
+      select: { studentId: true },
+    });
+    return links.map((l) => l.studentId);
+  }
 }

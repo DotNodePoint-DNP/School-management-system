@@ -15,6 +15,7 @@ import type { AuthUser } from '../auth/auth.types.js';
 import type { PortalAttendanceQueryDto } from './dto/portal.dto.js';
 import { PortalAccessService } from './portal-access.service.js';
 import { PortalResultsService } from './portal-results.service.js';
+import { PortalFeesService } from './portal-fees.service.js';
 
 const STUDENT_SELECT = {
   id: true,
@@ -47,6 +48,7 @@ export class PortalService {
     private readonly access: PortalAccessService,
     private readonly attendance: AttendanceSummaryService,
     private readonly results: PortalResultsService,
+    private readonly fees: PortalFeesService,
   ) {}
 
   /** The parent and the children they may see. */
@@ -99,17 +101,27 @@ export class PortalService {
     const enrollmentIds = children.flatMap((c) =>
       c.current ? [c.current.enrollmentId] : [],
     );
-    const [summaries, latest] = await Promise.all([
+    const [summaries, latest, fees] = await Promise.all([
       this.attendance.forEnrollments(enrollmentIds, from, today),
       this.results.listForStudents(children.map((c) => c.id)),
+      this.fees.childSummaries(children.map((c) => c.id)),
     ]);
+    const feeBy = new Map(fees.map((f) => [f.student.id, f] as const));
     return {
       guardian,
       asOf: today,
       asOfBs: adToBsString(today),
+      fees: {
+        outstanding:
+          fees.reduce((n, f) => n + Math.round(f.outstanding * 100), 0) / 100,
+        overdue:
+          fees.reduce((n, f) => n + Math.round(f.overdue * 100), 0) / 100,
+        credit: fees.reduce((n, f) => n + Math.round(f.credit * 100), 0) / 100,
+      },
       children: children.map((c) => {
         const a = c.current ? summaries.get(c.current.enrollmentId) : undefined;
         const r = (latest.get(c.id) ?? [])[0];
+        const f = feeBy.get(c.id);
         return {
           ...c,
           attendance: a
@@ -133,6 +145,14 @@ export class PortalService {
                 percentage: r.percentage,
                 version: r.version,
                 revised: r.revised,
+              }
+            : null,
+          fees: f
+            ? {
+                outstanding: f.outstanding,
+                overdue: f.overdue,
+                credit: f.credit,
+                oldestDueDate: f.oldestDueDate,
               }
             : null,
         };

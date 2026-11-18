@@ -883,6 +883,39 @@ describe('Parent portal (e2e)', () => {
     ).toBe(82);
   });
 
+  it('prints a released report card as a parent copy with blank signature lines', async ({
+    skip,
+  }) => {
+    if (blocked) skip();
+    const print = (body: object, t = token.parent1) =>
+      http().post(`${V1}/portal/print/report-card`).set(auth(t)).send(body);
+    const res = await print({ studentId: stu.c1, examId: exam.ET }).expect(200);
+    expect(res.headers['cache-control']).toContain('no-store');
+    const b = res.body.data;
+    expect(b).toMatchObject({
+      kind: 'REPORT_CARD',
+      variant: 'PARENT_COPY',
+      skipped: [],
+    });
+    expect(b.documents).toHaveLength(1);
+    expect(b.documents[0]).toMatchObject({
+      student: { admissionNo: `E2E-${RUN}-c1` },
+      result: { percentage: 82 },
+    });
+    expect(
+      b.signatories.every((s: { mode: string }) => s.mode === 'LINE'),
+    ).toBe(true);
+    expect(Object.keys(b.assets).filter((k) => k.startsWith('sig:'))).toEqual(
+      [],
+    ); // never a digital signature
+    await print({ studentId: stu.c1, examId: exam.ED }).expect(404); // not released
+    await print({ studentId: stu.c3, examId: exam.ET }).expect(404); // another family's child
+    await print({ studentId: stu.c1, examId: exam.ET }, token.staff).expect(
+      403,
+    );
+    await print({ studentId: 'nope' }).expect(400);
+  });
+
   it('puts the whole family on one screen', async ({ skip }) => {
     if (blocked) skip();
     const home = await portal('/home');
