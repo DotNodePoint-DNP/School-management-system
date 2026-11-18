@@ -182,7 +182,7 @@ export class ReportCardService {
     return doc;
   }
 
-  private async collect(req: ReportCardRequest, actor: AuthUser) {
+  private async collect(req: ReportCardRequest, actor: AuthUser | null) {
     const today = todayIso();
     const issuedOn =
       resolveDate('issuedOn', req.issuedOn, req.issuedOnBs) ?? today;
@@ -224,7 +224,7 @@ export class ReportCardService {
       throw new NotFoundException('Some students are not part of this result');
 
     // Office roles may read any section; class teachers only their own.
-    if (!actor.permissions.includes('results:read-all')) {
+    if (actor && !actor.permissions.includes('results:read-all')) {
       const sections = [...new Set(rows.map((r) => r.sectionId))];
       if (sections.length === 0)
         await this.results.assertCanRead(
@@ -441,5 +441,32 @@ export class ReportCardService {
       .digest('hex')
       .slice(0, 12)
       .toUpperCase();
+  }
+
+  /**
+   * One child's report card for a parent. The portal has already checked that this parent may see this child
+   * and that the result has been released, so no staff permission check applies here.
+   */
+  async forParent(
+    enrollmentId: string,
+    q: { examId?: string },
+  ): Promise<ReportCardData> {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { academicYearId: true, classId: true },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+    const c = await this.collect(
+      {
+        academicYearId: enrollment.academicYearId,
+        classId: enrollment.classId,
+        enrollmentIds: [enrollmentId],
+        examId: q.examId,
+      },
+      null,
+    );
+    const doc = c.documents[0];
+    if (!doc) throw new NotFoundException('There is no result yet');
+    return doc;
   }
 }

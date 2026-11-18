@@ -177,6 +177,8 @@ model StudentGuardian {
   relationship       String
   isPrimary          Boolean @default(false) @map("is_primary")
   isEmergencyContact Boolean @default(false) @map("is_emergency_contact")
+  /// The school can switch a guardian's portal view of this child off (custody or safety cases).
+  portalAccess       Boolean @default(true) @map("portal_access")
 
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Restrict)

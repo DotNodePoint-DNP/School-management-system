@@ -218,6 +218,20 @@ async function main(): Promise<void> {
             },
           });
         }
+
+        const portal = await tx.permission.findFirstOrThrow({
+          where: { module: 'portal', action: 'access' },
+        });
+        const parentRole = await tx.role.findUniqueOrThrow({
+          where: { name: 'PARENT' },
+          select: { id: true, permissions: { select: { permissionId: true } } },
+        });
+        if (!parentRole.permissions.some((p) => p.permissionId === portal.id)) {
+          await tx.role.update({
+            where: { id: parentRole.id },
+            data: { permissions: { create: [{ permissionId: portal.id }] } },
+          });
+        }
       },
       {
         maxWait: 50000, // default: 2000 ms

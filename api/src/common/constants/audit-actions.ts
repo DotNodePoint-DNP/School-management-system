@@ -160,5 +160,7 @@ export const AUDIT_ACTIONS = [
   'invoice.printed',
   'fees.documents_printed',
   'fee_reminders.sent',
+  'exam.release_set',
+  'guardian.portal_access_changed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

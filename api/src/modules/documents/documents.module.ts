@@ -12,5 +12,6 @@ import { ReportCardService } from './report-card.service.js';
   imports: [ExamsModule, AttendanceModule, FeesModule],
   controllers: [PrintController, FeePrintController],
   providers: [PrintAssemblyService, ReportCardService, FeeDocumentsService],
+  exports: [ReportCardService, PrintAssemblyService],
 })
 export class DocumentsModule {}

@@ -468,7 +468,7 @@ export class StudentsService {
       throw new BadRequestException('Exactly one guardian must be primary');
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const changes = await this.prisma.$transaction(async (tx) => {
       const student = await tx.student.findUnique({
         where: { id },
         select: { id: true },
@@ -487,6 +487,33 @@ export class StudentsService {
         );
       }
 
+      const before = await tx.studentGuardian.findMany({
+        where: { studentId: id },
+        select: { guardianId: true, portalAccess: true },
+      });
+      const wasOn = new Map(
+        before.map((b) => [b.guardianId, b.portalAccess] as const),
+      );
+      const changes = dto.guardians
+        .filter(
+          (g) =>
+            g.portalAccess !== undefined &&
+            g.portalAccess !== (wasOn.get(g.guardianId) ?? true),
+        )
+        .map((g) => ({
+          guardianId: g.guardianId,
+          portalAccess: g.portalAccess as boolean,
+        }));
+
+      if (
+        changes.length > 0 &&
+        !actor.permissions.includes('guardians:manage')
+      ) {
+        throw new ForbiddenException(
+          'Only someone who may manage guardians can switch portal access on or off',
+        );
+      }
+
       await tx.studentGuardian.deleteMany({
         where: {
           studentId: id,
@@ -497,11 +524,15 @@ export class StudentsService {
         where: { studentId: id, isPrimary: true },
         data: { isPrimary: false },
       });
+
       for (const link of dto.guardians) {
         const data = {
           relationship: link.relationship,
           isPrimary: link.isPrimary,
-          isEmergencyContact: link.isEmergencyContact === true,
+          isEmergencyContact: link.isEmergencyContact ?? false,
+          ...(link.portalAccess !== undefined
+            ? { portalAccess: link.portalAccess }
+            : {}),
         };
         await tx.studentGuardian.upsert({
           where: {
@@ -514,7 +545,19 @@ export class StudentsService {
           create: { studentId: id, guardianId: link.guardianId, ...data },
         });
       }
+
+      return changes;
     }, TX);
+
+    for (const c of changes) {
+      await this.audit.record({
+        actor,
+        action: 'guardian.portal_access_changed',
+        entityType: 'student',
+        entityId: id,
+        details: { guardianId: c.guardianId, portalAccess: c.portalAccess },
+      });
+    }
 
     await this.audit.record({
       actor,
