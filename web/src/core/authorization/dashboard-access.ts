@@ -1,4 +1,8 @@
+import { financeSections } from "@/modules/finance/sections";
+
 const MODULE_PERMISSIONS: Record<string, readonly string[]> = {
+  finance: financeSections.flatMap(section => section.permissions),
+  family: ["portal:access"],
   settings: [
     "academic-years:read",
     "roles:read",
@@ -72,6 +76,7 @@ const MODULE_PERMISSIONS: Record<string, readonly string[]> = {
   ],
   staff: ["staff:read", "staff:manage"],
   "Examination-Gradebook": [
+    "exams:release",
     "exams:read",
     "marks:read",
     "marks:read-all",

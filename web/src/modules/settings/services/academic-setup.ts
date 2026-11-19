@@ -211,6 +211,8 @@ export async function listSchoolClasses(): Promise<SchoolClass[]> {
   return createApiClient().get<SchoolClass[]>("/classes");
 }
 
+export const getSchoolClass = (id: string) => createApiClient().get<SchoolClass>(`/classes/${encodeURIComponent(id)}`);
+
 export async function createSchoolClass(
   input: SchoolClassInput,
 ): Promise<SchoolClass> {

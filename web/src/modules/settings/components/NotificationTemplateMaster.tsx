@@ -443,7 +443,7 @@ export default function NotificationTemplateMaster() {
               <div className="grid grid-cols-2 gap-1 text-[10px] text-muted">
                 {Object.entries(MOCK_PREVIEW_DATA).map(([tag, val]) => (
                   <div key={tag}>
-                    <code className="text-teal font-bold">{tag}</code> = "{val}"
+                    <code className="text-teal font-bold">{tag}</code> = &quot;{val}&quot;
                   </div>
                 ))}
               </div>

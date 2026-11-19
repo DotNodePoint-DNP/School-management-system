@@ -10,5 +10,6 @@ export default async function SettingsIndexPage() {
   const navModule = findModule(user.permissions, "Examination-Gradebook");
   if (!navModule) notFound();
 
+  if (user.permissions.includes("exams:release") && !user.permissions.includes("exams:read")) redirect("/dashboard/Examination-Gradebook/releases");
   redirect(sectionHref(navModule, navModule.sections[0]));
 }

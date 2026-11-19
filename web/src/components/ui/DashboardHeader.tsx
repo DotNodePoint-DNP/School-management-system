@@ -66,7 +66,7 @@ export default function DashboardHeader({ user }: { user?: HeaderUser }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-line bg-panel/90 px-6 backdrop-blur-md transition-colors">
+    <header className="sticky top-0 z-40 flex h-16 w-full shrink-0 items-center justify-between border-b border-line bg-panel/90 px-3 sm:px-6 backdrop-blur-md transition-colors">
       {/* App Branding Context */}
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy text-panel shadow-xs">

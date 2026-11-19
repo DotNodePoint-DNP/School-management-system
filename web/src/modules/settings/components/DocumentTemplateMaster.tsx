@@ -128,7 +128,7 @@ export default function DocumentTemplateMaster() {
     }));
   };
 
-  const handleSignatureChange = (index: number, field: keyof SignatureBlock, value: any) => {
+  const handleSignatureChange = <K extends keyof SignatureBlock,>(index: number, field: K, value: SignatureBlock[K]) => {
     const updatedSigs = [...selectedTemplate.signatures];
     updatedSigs[index] = { ...updatedSigs[index], [field]: value };
     setSelectedTemplate((prev) => ({ ...prev, signatures: updatedSigs }));

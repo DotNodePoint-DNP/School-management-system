@@ -15,12 +15,12 @@ export default async function PortalLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/auth");
   return (
-    <QueryProvider>
-      <div className="h-screen flex flex-col">
+    <QueryProvider key={user.id}>
+      <div className="flex h-dvh min-w-0 flex-col">
         <AuthSessionBootstrap />
         <DashboardHeader user={{ ...user, email: user.email ?? "" }} />
         <DashboardFrame user={user}>{children}</DashboardFrame>
-        <QuickAccessBar />
+        <QuickAccessBar permissions={user.permissions}/>
       </div>
     </QueryProvider>
   );

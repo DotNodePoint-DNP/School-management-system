@@ -1,5 +1,6 @@
 // src/modules/dashboard/navigation.ts
 import { permissionsForDashboardModule } from "@/core/authorization/dashboard-access";
+import { financeSections } from "@/modules/finance/sections";
 
 /**
  * Icons are referenced by name (not by component) so this config stays
@@ -11,6 +12,7 @@ export type NavSection = {
   slug: string;
   label: string;
   icon?: IconName;
+  permissions?: string[];
 };
 
 export type NavModule = {
@@ -21,6 +23,7 @@ export type NavModule = {
 };
 
 export const NAV_MODULES: NavModule[] = [
+  { slug: "family", label: "Family portal", icon: "users", sections: [] },
     {
     slug: "settings",
     label: "Settings & School Setup",
@@ -34,7 +37,7 @@ export const NAV_MODULES: NavModule[] = [
       { slug: "audit-log", label: "Audit log", icon: "book" },
       {slug: "class-section-setup",label: "Class & Section" , icon:"calandarFold"},
       {slug: "grading-scale", label:"Grading Scale", icon:"book"},
-      {slug: "fee-structure", label: "Fee Structure", icon: "wallet" },
+      {slug: "fee-structure", label: "Fee heads", icon: "wallet", permissions: ["fees:read", "fees:structure-manage"] },
       {slug:"document-template", label: "Document & Notification", icon: "book"},
     ],
   },
@@ -45,10 +48,10 @@ export const NAV_MODULES: NavModule[] = [
     icon: "users",
     sections: [
       { slug: "student-directory", label: "Student directory" },
-      { slug: "teacher-directory", label: "Teacher directory" },
+      { slug: "teacher-directory", label: "Teacher directory", permissions:["staff:read","staff:manage"] },
       { slug: "parent-directory", label: "Parent directory" },
-      { slug: "attendance", label: "Attendance" },
-      { slug: "health-records", label: "Health records" },
+
+
     ],
   },
   {
@@ -76,7 +79,7 @@ export const NAV_MODULES: NavModule[] = [
       { slug: "subjects", label: "Subjects & curriculum" },
       { slug: "teaching", label: "Teaching assignments" },
       { slug: "promotion", label: "Promotion" },
-      { slug: "exams-results", label: "Exams & results" },
+
     ],
   },
   {
@@ -126,18 +129,14 @@ export const NAV_MODULES: NavModule[] = [
       { slug: "report-card", label: "Report Card / Marksheet", icon: "book" },
       { slug: "grade-book", label: "Gradebook/analytics", icon: "book"},
       { slug: "results", label: "Results publish", icon: "book"},
+      {slug:"releases", label:"Parent result releases", permissions:["exams:release"]},
     ],
   },
    {
-    slug: "Fee Management   ",
-    label: "Fee Management",
-    icon: "book",
-    sections: [
-      { slug: "school-profile", label: "School profile", icon: "userCog" },
-      { slug: "academic-year", label: "Academic year", icon: "calandarFold" },
-      { slug: "roles-permissions", label: "Roles & permissions", icon: "UserShield" },
-      { slug: "integrations", label: "Integrations", icon: "book" },
-    ],
+    slug: "finance",
+    label: "Finance",
+    icon: "wallet",
+    sections: financeSections,
   },
    {
     slug: "ID Card Studio ",
@@ -210,7 +209,10 @@ export function modulesForPermissions(
   return NAV_MODULES.filter((module) => {
     const required = permissionsForDashboardModule(module.slug);
     return required.some((permission) => permissions.includes(permission));
-  });
+  }).map(module => ({
+    ...module,
+    sections: module.sections.filter(section => !section.permissions || section.permissions.some(p => permissions.includes(p))),
+  }));
 }
 
 export function findModule(

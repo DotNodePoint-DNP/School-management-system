@@ -6,9 +6,11 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { RecordDisclosure } from "@/components/RecordDisclosure";
 import { ApiClientError } from "@/lib/api/client";
 import {
   createRbacRole,
+  getRbacRole,
   deleteRbacRole,
   listRbacPermissions,
   listRbacRoles,
@@ -379,6 +381,7 @@ export function RolesPermissionMatrix() {
           {errorMessage(mutationError)}
         </p>
       )}
+      {selectedRole && <RecordDisclosure label="Role details" queryKey={[...rolesQueryKey,selectedRole.id]} load={()=>getRbacRole(selectedRole.id)}/>}
       {notice && (
         <p className="text-sm text-teal" role="status">
           {notice}

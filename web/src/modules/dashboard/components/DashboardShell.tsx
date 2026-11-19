@@ -60,7 +60,11 @@ export function DashboardShell({
   const moduleSlug = pathname.split("/").filter(Boolean)[1];
   const activeModule = modules.find((m) => m.slug === moduleSlug);
 
-  useEffect(() => setDrawerOpen(false), [pathname]);
+  const [previousPath, setPreviousPath] = useState(pathname);
+  if (pathname !== previousPath) {
+    setPreviousPath(pathname);
+    setDrawerOpen(false);
+  }
   useEffect(() => {
     if (!drawerOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawerOpen(false);
@@ -78,7 +82,7 @@ export function DashboardShell({
   );
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background text-ink transition-colors duration-200">
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-background text-ink transition-colors duration-200">
       {/* Desktop sidebar: Theme-aware panel background and line border */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-panel md:flex lg:w-72">
         {sidebar}
@@ -106,7 +110,7 @@ export function DashboardShell({
       )}
 
       {/* Main Content Area */}
-      <div className="flex min-w-0 flex-1 flex-co">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Render header if provided; show mobile menu button when collapsed */}
         <div className="sticky top-0 z-30 flex items-center border-b border-line bg-panel/90 backdrop-blur-md">
           <div className="flex h-16 items-center px-3 md:hidden">
@@ -121,7 +125,7 @@ export function DashboardShell({
           <div className="flex-1">{header}</div>
         </div>
 
-        <main className="flex-1 overflow-y-auto p-5 md:p-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5 md:p-8">{children}</main>
       </div>
     </div>
   );
@@ -163,7 +167,7 @@ function SidebarContent({
         aria-label={activeModule ? `${activeModule.label} sections` : "Modules"}
         className="flex-1 overflow-y-auto py-2"
       >
-        {activeModule
+        {activeModule?.sections.length
           ? activeModule.sections.map((section) => {
               const href = sectionHref(activeModule, section);
               const active = pathname === href;

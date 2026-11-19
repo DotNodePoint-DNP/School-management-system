@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ErrorBox, StatusBox } from "./ExamSetupWorkspace";
-import { getExamSetup, listExamClasses, listExamYears, listExams } from "./services/exams";
+import { RecordDisclosure } from "@/components/RecordDisclosure";
+import { listResultPolicies } from "./services/results";
+import { getExam, getExamSetup, listExamClasses, listExamYears, listExams } from "./services/exams";
 
 const fieldClass = "mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal";
 
@@ -42,6 +44,8 @@ export default function ExamScheduleWorkspace() {
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Exam schedule</h1>
         <p className="mt-1 text-sm text-muted">Review scheduled subject assessments by academic year, exam, and class.</p>
       </header>
+      {selectedExam && <RecordDisclosure label="Exam details" queryKey={["examination","detail",selectedExam.id]} load={()=>getExam(selectedExam.id)}/>}
+      {selectedYearId && <RecordDisclosure label="Class result policies" queryKey={["examination","policies",selectedYearId]} load={()=>listResultPolicies(selectedYearId)}/>}
       <div className="grid gap-4 md:grid-cols-3">
         <label className="text-sm font-medium">Academic year<select className={fieldClass} onChange={(event) => setYearId(event.target.value)} value={selectedYearId}>{years.map((year) => <option key={year.id} value={year.id}>{year.name} · {year.status}</option>)}</select></label>
         <label className="text-sm font-medium">Exam<select className={fieldClass} onChange={(event) => setExamId(event.target.value)} value={selectedExam?.id ?? ""}><option value="">Select an exam</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.sequence}. {exam.name} · {exam.status}</option>)}</select></label>

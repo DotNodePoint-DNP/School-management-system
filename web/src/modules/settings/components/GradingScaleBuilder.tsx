@@ -3,12 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { RecordDisclosure } from "@/components/RecordDisclosure";
 import { ApiClientError } from "@/lib/api/client";
 import {
   copyGradeScale,
   createGradeScale,
   deleteGradeScale,
   listGradeScales,
+  getGradeScale,
   replaceGradeScale,
   setDefaultGradeScale,
   type GradeBand,
@@ -296,7 +298,7 @@ export default function GradingScaleBuilder({
                 onSave={(input) => createMutation.mutate(input)}
               />
             ) : selectedScale ? (
-              <GradeScaleDetails
+              <><RecordDisclosure label="Saved scale details" queryKey={[...queryKey,selectedScale.id]} load={()=>getGradeScale(selectedScale.id)}/><GradeScaleDetails
                 canManage={canManage}
                 key={selectedScale.id}
                 isPending={
@@ -311,7 +313,7 @@ export default function GradingScaleBuilder({
                   replaceGradeScale(selectedScale.id, input)
                 }
                 scale={selectedScale}
-              />
+              /></>
             ) : (
               <div className="rounded-md border border-dashed border-line bg-panel p-8 text-center text-sm text-muted">
                 Select a grading scale to view and edit it.

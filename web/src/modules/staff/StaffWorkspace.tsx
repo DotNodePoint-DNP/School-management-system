@@ -50,6 +50,8 @@ import {
 } from "./components/StaffDialogs";
 
 type Props = {
+  teachingOnly?:boolean;
+  initialId?:string;
   canRead: boolean;
   canManage: boolean;
   canCreateLogin: boolean;
@@ -91,6 +93,7 @@ function initials(name: string) {
 }
 
 export default function StaffWorkspace({
+  teachingOnly=false,initialId,
   canRead,
   canManage,
   canCreateLogin,
@@ -98,11 +101,11 @@ export default function StaffWorkspace({
 }: Props) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [kind, setKind] = useState<StaffKind | "">("");
+  const [kind, setKind] = useState<StaffKind | "">(teachingOnly?"TEACHING":"");
   const [status, setStatus] = useState<StaffStatus | "">("ACTIVE");
   const [page, setPage] = useState(1);
-  const [dialog, setDialog] = useState<DialogMode>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogMode>(initialId?"detail":null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId??null);
   const [loginResult, setLoginResult] = useState<StaffLoginResult | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
 
@@ -242,7 +245,7 @@ export default function StaffWorkspace({
         <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/65"><Users className="size-3.5" /> People · Staff</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Staff directory</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">{teachingOnly?"Teacher directory":"Staff directory"}</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">A clear view of your school team—profiles, employment status, and access readiness in one place.</p>
           </div>
           {canManage && (
@@ -278,9 +281,9 @@ export default function StaffWorkspace({
                 <Search className="absolute left-3 top-3 size-4 text-muted" />
                 <input className={`${inputClass} pl-9`} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name or staff number" value={search} />
               </label>
-              <label><span className="sr-only">Staff category</span><select className={inputClass} onChange={(event) => { setKind(event.target.value as StaffKind | ""); setPage(1); }} value={kind}>{STAFF_KIND.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}</select></label>
+              <label><span className="sr-only">Staff category</span><select disabled={teachingOnly} className={inputClass} onChange={(event) => { setKind(event.target.value as StaffKind | ""); setPage(1); }} value={kind}>{STAFF_KIND.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}</select></label>
               <label><span className="sr-only">Employment status</span><select className={inputClass} onChange={(event) => { setStatus(event.target.value as StaffStatus | ""); setPage(1); }} value={status}>{STAFF_STATUS.map((option) => <option key={option.value || "all"} value={option.value}>{option.label}</option>)}</select></label>
-              <button className="h-10 rounded-lg border border-line px-4 text-sm font-semibold text-muted transition hover:bg-background hover:text-ink" onClick={() => { setSearch(""); setKind(""); setStatus(""); setPage(1); }} type="button">Clear filters</button>
+              <button className="h-10 rounded-lg border border-line px-4 text-sm font-semibold text-muted transition hover:bg-background hover:text-ink" onClick={() => { setSearch(""); setKind(teachingOnly?"TEACHING":""); setStatus(""); setPage(1); }} type="button">Clear filters</button>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-muted">
               <span>{meta ? `${meta.total} staff record${meta.total === 1 ? "" : "s"} found` : "Search or filter the directory"}</span>
