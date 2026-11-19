@@ -4,6 +4,7 @@ import type {
   ChangePasswordRequest,
 } from "@/lib/api/contracts";
 import {
+  ApiClientError,
   refreshApiSession,
   setApiAccessToken,
 } from "@/lib/api/client";
@@ -41,7 +42,7 @@ async function authRequest<T>(
         : Array.isArray(nestedError)
           ? nestedError.join(", ")
           : `Authentication request failed: ${response.status}`;
-    throw new Error(message);
+    throw new ApiClientError(response.status, message);
   }
   return payload as T;
 }
@@ -58,7 +59,7 @@ export async function signIn(input: LoginInput): Promise<LoginResult> {
 export async function refreshSession(): Promise<LoginResult> {
   const result = await refreshApiSession();
   if (!result) {
-    throw new Error("Your session has expired. Sign in again.");
+    throw new ApiClientError(401, "Your session has expired. Sign in again.");
   }
   return result;
 }

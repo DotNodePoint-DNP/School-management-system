@@ -15,7 +15,7 @@ The marketing website is served on the primary domain, for example `Pathivara .e
 
 ## Roles
 
-The frontend recognizes four roles: `teacher_staff`, `school_admin`, `accountant`, and `parent`. `src/core/authorization/` owns permissions and role-aware navigation. These checks control the interface only; the API must independently authorize every request and enforce school/tenant scope.
+The frontend accepts system and custom roles. Effective permissions from the API determine visible workspaces and actions. These checks control the interface only; the API must independently authorize every request and enforce school/tenant scope.
 
 Set `NEXT_PUBLIC_API_URL` at build time to the browser-reachable backend origin, optionally including `/api/v1` (for example, `https://api.example.com/api/v1`). The shared API client adds `/api/v1` when it is not already present. Production requires HTTPS. This URL is public configuration, not a secret. Configure the API server's `CORS_ORIGINS` for the web app origin when using direct browser API requests.
 

@@ -42,6 +42,7 @@ export const AUDIT_ACTIONS = [
   'staff.left',
   'staff.reactivated',
   'staff.login_created',
+  'staff.login_linked',
   'staff.deleted',
   'teaching.class_teacher_set',
   'teaching.subject_teacher_set',

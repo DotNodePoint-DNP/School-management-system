@@ -77,7 +77,7 @@ export async function verifySessionClaims(
       !claims.id ||
       !claims.fullName ||
       !claims.displayName ||
-      !isRole(claims.role) ||
+      (claims.role !== "custom" && !isRole(claims.role)) ||
       typeof claims.accessToken !== "string" ||
       !Array.isArray(claims.roles) ||
       !Array.isArray(claims.permissions) ||

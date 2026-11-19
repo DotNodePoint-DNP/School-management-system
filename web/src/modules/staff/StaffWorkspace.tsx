@@ -47,6 +47,7 @@ import {
   StaffFormDialog,
   StaffLeaveDialog,
   StaffLoginDialog,
+  LinkStaffAccountDialog,
 } from "./components/StaffDialogs";
 
 type Props = {
@@ -54,11 +55,12 @@ type Props = {
   initialId?:string;
   canRead: boolean;
   canManage: boolean;
+  canLinkLogin: boolean;
   canCreateLogin: boolean;
   canReadRoles: boolean;
 };
 
-type DialogMode = "create" | "detail" | "edit" | "leave" | "login" | null;
+type DialogMode = "create" | "detail" | "edit" | "leave" | "login" | "link" | null;
 
 const PAGE_SIZE = 15;
 
@@ -96,6 +98,7 @@ export default function StaffWorkspace({
   teachingOnly=false,initialId,
   canRead,
   canManage,
+  canLinkLogin,
   canCreateLogin,
   canReadRoles,
 }: Props) {
@@ -209,6 +212,7 @@ export default function StaffWorkspace({
     onSuccess: async (result) => {
       setLoginResult(result);
       toast.success("Staff login created.");
+      await queryClient.invalidateQueries({queryKey: ["users"]});
       await refreshDirectory();
     },
     onError: (error) =>
@@ -235,7 +239,7 @@ export default function StaffWorkspace({
   const dialogBusy =
     detailsQuery.isPending &&
     selectedId !== null &&
-    (dialog === "detail" || dialog === "edit" || dialog === "leave" || dialog === "login");
+    (dialog === "detail" || dialog === "edit" || dialog === "leave" || dialog === "login" || dialog === "link");
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 pb-10 text-ink md:p-6">
@@ -404,6 +408,7 @@ export default function StaffWorkspace({
           canManage={canManage}
           canReadRoles={canReadRoles}
           onClose={closeDialog}
+          onLinkLogin={canLinkLogin ? () => setDialog("link") : undefined}
           onCreateLogin={() => setDialog("login")}
           onDelete={() => removeStaff(selectedStaff)}
           onEdit={() => setDialog("edit")}
@@ -432,6 +437,12 @@ export default function StaffWorkspace({
           onSubmit={(input) => leaveMutation.mutate({ id: selectedStaff.id, input })}
           staff={selectedStaff}
         />
+      )}
+      {selectedStaff && dialog === "link" && canLinkLogin && (
+        <LinkStaffAccountDialog staff={selectedStaff} onClose={closeDialog} onLinked={async () => {
+          setDialog("detail");
+          await Promise.all([refreshDirectory(), queryClient.invalidateQueries({queryKey: ["users"]})]);
+        }} />
       )}
       {selectedStaff && dialog === "login" && canReadRoles && (
         <StaffLoginDialog

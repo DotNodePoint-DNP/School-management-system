@@ -20,6 +20,7 @@ export async function StaffDirectory({teachingOnly=false,initialId}:{teachingOnl
       teachingOnly={teachingOnly}
       initialId={initialId}
       canCreateLogin={canCreateLogin}
+      canLinkLogin={user.roles.includes("ADMIN") && canCreateLogin && permissions.includes("users:read")}
       canManage={canManage}
       canRead={canRead}
       canReadRoles={canReadRoles}

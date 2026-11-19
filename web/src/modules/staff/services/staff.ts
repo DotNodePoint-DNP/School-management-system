@@ -130,3 +130,7 @@ export async function deleteStaff(
 ): Promise<{ deleted: true }> {
   return createApiClient().delete<{ deleted: true }>(staffPath(id));
 }
+
+export function linkStaffLogin(id: string, userId: string) {
+  return createApiClient().put<StaffDetails>(`${staffPath(id)}/login/${encodeURIComponent(userId)}`, {});
+}

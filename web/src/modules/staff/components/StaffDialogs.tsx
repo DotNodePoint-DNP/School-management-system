@@ -11,6 +11,9 @@ import {
   LoaderCircle,
   X,
 } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { listUsers } from "@/modules/settings/services/users";
+import { linkStaffLogin } from "../services/staff";
 import { toast } from "sonner";
 import type { RbacRole } from "@/modules/settings/services/rbac";
 import type {
@@ -197,6 +200,7 @@ export function StaffDetailDialog({
   onLeave,
   onReactivate,
   onCreateLogin,
+  onLinkLogin,
   onDelete,
 }: {
   staff: StaffDetails;
@@ -208,6 +212,7 @@ export function StaffDetailDialog({
   onLeave: () => void;
   onReactivate: () => void;
   onCreateLogin: () => void;
+  onLinkLogin?: () => void;
   onDelete: () => void;
 }) {
   const displayName = [staff.firstName, staff.middleName, staff.lastName].filter(Boolean).join(" ");
@@ -239,7 +244,8 @@ export function StaffDetailDialog({
         <footer className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
           {canManage && staff.status === "ACTIVE" && <button className="rounded-lg border border-coral/30 px-3 py-2 text-xs font-semibold text-coral hover:bg-coral/5" onClick={onLeave} type="button">Record departure</button>}
           {canManage && staff.status === "LEFT" && <button className="rounded-lg border border-teal/30 px-3 py-2 text-xs font-semibold text-teal hover:bg-mint" onClick={onReactivate} type="button">Reactivate</button>}
-          {canCreateLogin && canReadRoles && !staff.hasLogin && staff.status === "ACTIVE" && (staff.email || staff.phone) && <button className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-background" onClick={onCreateLogin} type="button">Create portal login</button>}
+          {onLinkLogin && !staff.hasLogin && staff.status === "ACTIVE" && <button type="button" className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink" onClick={onLinkLogin}>Link existing account</button>}
+          {canCreateLogin && canReadRoles && !staff.hasLogin && staff.status === "ACTIVE" && (staff.email || staff.phone) && <button className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink hover:bg-background" onClick={onCreateLogin} type="button">Create new account</button>}
           {canManage && <button className="rounded-lg bg-teal px-4 py-2 text-xs font-semibold text-white hover:bg-navy" onClick={onEdit} type="button">Edit profile</button>}
           {canManage && <button aria-label="Delete staff record" className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-muted hover:border-coral/40 hover:text-coral" onClick={onDelete} type="button">Delete</button>}
         </footer>
@@ -389,4 +395,49 @@ export function StaffLoginDialog({
       )}
     </DialogFrame>
   );
+}
+
+export function LinkStaffAccountDialog({ staff, onClose, onLinked }: {
+  staff: StaffDetails;
+  onClose: () => void;
+  onLinked: () => Promise<void>;
+}) {
+  const [search, setSearch] = useState(staff.email ?? staff.phone ?? staff.lastName);
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState("");
+  const term = search.trim();
+  const accounts = useQuery({
+    queryKey: ["users", "staff-link", term, page],
+    queryFn: () => listUsers({ search: term, page, pageSize: 10, isActive: true, sortBy: "fullName" }),
+    enabled: Boolean(term),
+  });
+  const selected = accounts.data?.items.find(account => account.id === selectedId && !account.staff);
+  const link = useMutation({
+    mutationFn: (userId: string) => linkStaffLogin(staff.id, userId),
+    onSuccess: async () => { toast.success("Account linked to staff profile."); await onLinked(); },
+  });
+  return <DialogFrame title="Link existing account" description={[staff.firstName, staff.lastName, "·", staff.staffNo].join(" ")} onClose={() => { if (!link.isPending) onClose(); }}>
+    <div className="space-y-4 p-5">
+      <label className="block text-sm font-medium">Search active accounts by name, email or phone
+        <input className={formFieldClass} maxLength={100} value={search} disabled={link.isPending} onChange={event => { setSearch(event.target.value); setPage(1); setSelectedId(""); link.reset(); }} />
+      </label>
+      <fieldset disabled={link.isPending} className="space-y-2">
+        <legend className="sr-only">Choose the employee’s existing account</legend>
+        {term && accounts.isPending && <p role="status">Searching…</p>}
+        {accounts.isError && <p role="alert">{accounts.error.message}</p>}
+        {term && accounts.data?.items.length === 0 && <p>No matching active accounts.</p>}
+        {accounts.data?.items.map(account => <label key={account.id} className="flex items-start gap-2 rounded border border-line p-2 text-sm">
+          <input type="radio" name="staff-account" disabled={Boolean(account.staff)} checked={selectedId === account.id} onChange={() => { setSelectedId(account.id); link.reset(); }} />
+          <span><strong>{account.fullName}</strong><br/>{[account.email, account.phone].filter(Boolean).join(" · ")}{account.staff && <span> · Linked to {account.staff.staffNo}</span>}</span>
+        </label>)}
+        {accounts.data && accounts.data.meta.totalPages > 1 && <div className="flex gap-4">
+          <button disabled={page === 1} onClick={() => {setPage(page - 1); setSelectedId("");}}>Previous</button>
+          <button disabled={page >= accounts.data.meta.totalPages} onClick={() => {setPage(page + 1); setSelectedId("");}}>Next</button>
+        </div>}
+      </fieldset>
+      {selected && <p className="text-sm">Confirm that {selected.fullName} ({selected.email ?? selected.phone}) is the account for {staff.firstName} {staff.lastName}. Recording this employee’s departure will deactivate this account, including access through its other roles.</p>}
+      {link.isError && <p role="alert" className="text-sm text-coral">{link.error.message}</p>}
+      <button type="button" disabled={!selected || link.isPending} onClick={() => selected && link.mutate(selected.id)} className="rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{link.isPending ? "Linking…" : "Confirm account link"}</button>
+    </div>
+  </DialogFrame>;
 }

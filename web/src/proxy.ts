@@ -29,7 +29,7 @@ export async function proxy(request: NextRequest) {
       );
     }
     if (!hasDashboardAccess(request.nextUrl.pathname, user.permissions)) {
-      return NextResponse.redirect(new URL("/auth", request.url));
+      return NextResponse.rewrite(new URL("/dashboard/access-denied", request.url), {status:403});
     }
   }
 

@@ -41,6 +41,8 @@ export class ApiClientError extends Error {
   }
 }
 
+export const accessDeniedEvent = "school:access-denied";
+
 let accessToken: string | null = null;
 let refreshInFlight: Promise<AuthLoginResponse | null> | null = null;
 
@@ -116,6 +118,7 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
       if (refreshed) return request<T>(path, options, true, responseType, unwrapEnvelope);
     }
     if (!response.ok) {
+      if (response.status === 403 && typeof window !== "undefined") window.dispatchEvent(new Event(accessDeniedEvent));
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
         error?: { message?: string | string[]; requestId?: string };
@@ -265,6 +268,7 @@ export function refreshApiSession(): Promise<AuthLoginResponse | null> {
     })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status !== 401) throw new ApiClientError(response.status, "Session refresh failed. Please retry.");
           setApiAccessToken(null);
           return null;
         }

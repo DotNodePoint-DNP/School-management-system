@@ -1,3 +1,4 @@
+import { modulesForPermissions } from "@/modules/dashboard/components/Navigation";
 import { describe, expect, it } from "vitest";
 import { currentUserFromApi } from "@/core/authorization/roles";
 import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
@@ -19,18 +20,39 @@ describe("backend role and permission mapping", () => {
     expect(user.displayName).toBe("Admin User");
   });
 
-  it("fails closed when the backend role has no workspace mapping", () => {
-    expect(() =>
-      currentUserFromApi({
-        id: "custom-1",
-        fullName: "Custom User",
-        email: null,
-        phone: null,
-        mustChangePassword: false,
-        roles: ["CUSTOM"],
-        permissions: ["students:read"],
-      }),
-    ).toThrow("This account does not have a supported workspace role.");
+  it("opens a custom registrar workspace using its effective permissions", () => {
+    const user = currentUserFromApi({
+      id: "custom-1",
+      fullName: "Custom User",
+      email: null,
+      phone: null,
+      mustChangePassword: false,
+      roles: ["REGISTRAR"],
+      permissions: ["students:read"],
+    });
+    expect(user.role).toBe("custom");
+    expect(
+      hasDashboardAccess(
+        "/dashboard/student-info/student-directory/123",
+        user.permissions,
+      ),
+    ).toBe(true);
+    expect(hasDashboardAccess("/dashboard/settings", user.permissions)).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    ["audit-logs:read", "settings", "audit-log"],
+    ["marks:enter", "Examination-Gradebook", "marks-entry"],
+  ])("exposes just the granted section for %s", (grant, workspace, section) => {
+    const modules = modulesForPermissions([grant]);
+    expect(modules.map((item) => item.slug)).toEqual([workspace]);
+    expect(modules[0].sections.map((item) => item.slug)).toEqual([section]);
+    const path = "/dashboard/" + workspace + "/" + section;
+    expect(hasDashboardAccess(path, [grant])).toBe(true);
+    expect(hasDashboardAccess(path, [])).toBe(false);
+    expect(hasDashboardAccess(path + "/unknown", [grant])).toBe(false);
   });
 
   it("uses backend permissions for dashboard route access", () => {
@@ -44,7 +66,11 @@ describe("backend role and permission mapping", () => {
         "students:read-all",
       ]),
     ).toBe(false);
-    expect(hasDashboardAccess("/dashboard/staff/directory", ["staff:manage"])).toBe(true);
-    expect(hasDashboardAccess("/dashboard/staff/directory", ["staff:create-login"])).toBe(false);
+    expect(
+      hasDashboardAccess("/dashboard/staff/directory", ["staff:manage"]),
+    ).toBe(true);
+    expect(
+      hasDashboardAccess("/dashboard/staff/directory", ["staff:create-login"]),
+    ).toBe(false);
   });
 });

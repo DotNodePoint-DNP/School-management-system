@@ -18,7 +18,6 @@ import {
   updateRbacRole,
   type RbacRole,
 } from "@/modules/settings/services/rbac";
-import { useAuthStore } from "@/modules/auth/store/auth-store";
 
 const rolesQueryKey = ["rbac", "roles"];
 const permissionsQueryKey = ["rbac", "permissions"];
@@ -32,10 +31,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "The request failed.";
 }
 
-export function RolesPermissionMatrix() {
+export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
-  const permissions = useAuthStore((state) => state.user?.permissions ?? []);
-  const canManage = permissions.includes("roles:manage");
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState("");
@@ -302,6 +299,9 @@ export function RolesPermissionMatrix() {
                       Select the access this role should have.
                     </p>
                   </div>
+                  {selectedPermissions.some(code => ["marks:enter", "marks:read"].includes(code)) && !selectedPermissions.includes("exams:read") && (
+                    <p className="text-sm text-muted">Staff can open assigned marks sheets with an exam ID. Grant exams:read if they should also choose an exam by name.</p>
+                  )}
                   {groups.map((group) => (
                     <fieldset
                       className="rounded-md border border-line bg-panel p-4"

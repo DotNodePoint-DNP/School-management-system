@@ -51,16 +51,10 @@ export function currentUserFromApi(value: unknown): CurrentUser {
   const mappedRoles = [
     ...new Set(user.roles.map((role) => apiRoleMap.get(role))),
   ].filter((role): role is Role => role !== undefined);
-  if (mappedRoles.length === 0) {
-    throw new Error("This account does not have a supported workspace role.");
-  }
 
   const role = (
     ["school_admin", "teacher_staff", "accountant", "parent"] as const
-  ).find((candidate) => mappedRoles.includes(candidate));
-  if (!role) {
-    throw new Error("This account does not have a supported workspace role.");
-  }
+  ).find((candidate) => mappedRoles.includes(candidate)) ?? "custom";
 
   return {
     id: user.id,
@@ -122,5 +116,8 @@ export interface CurrentUser {
   mustChangePassword: boolean;
   roles: string[];
   permissions: string[];
-  role: Role;
+  role: Role | "custom";
+}
+export function roleLabel(user: CurrentUser) {
+  return user.role === "custom" ? user.roles.join(", ") || "School member" : roleDetails[user.role].label;
 }

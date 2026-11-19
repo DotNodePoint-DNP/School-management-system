@@ -1,3 +1,4 @@
+import { roleLabel } from "@/core/authorization/roles";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/core/session/server";
@@ -17,8 +18,8 @@ export default async function PortalLayout({
   return (
     <QueryProvider key={user.id}>
       <div className="flex h-dvh min-w-0 flex-col">
-        <AuthSessionBootstrap />
-        <DashboardHeader user={{ ...user, email: user.email ?? "" }} />
+        <AuthSessionBootstrap user={user} />
+        <DashboardHeader user={{ displayName: user.displayName, roleLabel: roleLabel(user), email: user.email ?? "" }} />
         <DashboardFrame user={user}>{children}</DashboardFrame>
         <QuickAccessBar permissions={user.permissions}/>
       </div>

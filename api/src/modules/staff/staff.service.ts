@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
   todayIso,
   toIsoDate,
 } from '../../common/utils/bs-date.js';
+import { ADMIN_ROLE } from '../../common/constants/rbac.js';
 import { normalizePhone } from '../../common/utils/identifier.js';
 import { displayName } from '../../common/utils/person.js';
 import { nextSequence } from '../../common/utils/sequence.js';
@@ -307,8 +309,12 @@ export class StaffService {
       await this.lockStaffRow(tx, id);
       const current = await tx.staff.findUniqueOrThrow({
         where: { id },
-        select: { status: true },
+        select: { status: true, userId: true },
       });
+      if (current.userId !== staff.userId)
+        throw new ConflictException(
+          'The linked account changed. Review the staff record and retry.',
+        );
       if (current.status !== 'ACTIVE')
         throw new ConflictException('This staff member has already left');
       await this.assertNoOpenAssignments(tx, id);
@@ -362,52 +368,95 @@ export class StaffService {
     dto: CreateStaffLoginDto,
     actor: AuthUser,
   ): Promise<{ staff: StaffResponse; temporaryPassword: string }> {
-    const staff = await this.prisma.staff.findUnique({
+    return this.prisma.$transaction(async (tx) => {
+      const staff = await this.activeStaffForLogin(tx, id);
+      if (staff.userId)
+        throw new ConflictException('This staff member already has a login');
+      if (!staff.email && !staff.phone)
+        throw new BadRequestException(
+          'Add an email address or phone number to this staff record first',
+        );
+      const userDto: CreateUserDto = {
+        fullName: displayName(staff),
+        email: staff.email ?? undefined,
+        phone: staff.phone ?? undefined,
+        roleIds: dto.roleIds,
+      };
+      const created = await this.users.createIn(tx, userDto, actor);
+      const linked = await this.attachLogin(
+        tx,
+        id,
+        created.user.id,
+        actor,
+        'staff.login_created',
+      );
+      return { staff: linked, temporaryPassword: created.temporaryPassword };
+    }, TX);
+  }
+
+  async linkLogin(
+    id: string,
+    userId: string,
+    actor: AuthUser,
+  ): Promise<StaffResponse> {
+    if (!actor.roles.includes(ADMIN_ROLE))
+      throw new ForbiddenException(
+        'Only a school administrator can link an existing account',
+      );
+    return this.prisma.$transaction(async (tx) => {
+      const staff = await this.activeStaffForLogin(tx, id);
+      if (staff.userId === userId) return toDetail(staff);
+      if (staff.userId)
+        throw new ConflictException('This staff member already has a login');
+      const accounts = await tx.$queryRaw<
+        { active: boolean }[]
+      >`SELECT is_active AS active FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      if (!accounts.length)
+        throw new NotFoundException('User account not found');
+      if (!accounts[0].active)
+        throw new ConflictException('Choose an active user account');
+      if (
+        await tx.staff.findUnique({ where: { userId }, select: { id: true } })
+      ) {
+        throw new ConflictException(
+          'This account is already linked to another staff member',
+        );
+      }
+      return this.attachLogin(tx, id, userId, actor, 'staff.login_linked');
+    }, TX);
+  }
+
+  private async activeStaffForLogin(tx: Tx, id: string) {
+    await this.lockStaffRow(tx, id);
+    const staff = await tx.staff.findUniqueOrThrow({
       where: { id },
-      select: {
-        firstName: true,
-        middleName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        status: true,
-        userId: true,
-      },
+      select: DETAIL_SELECT,
     });
-    if (!staff) throw new NotFoundException('Staff member not found');
     if (staff.status !== 'ACTIVE')
       throw new ConflictException('This staff member has left');
-    if (staff.userId)
-      throw new ConflictException('This staff member already has a login');
-    if (!staff.email && !staff.phone) {
-      throw new BadRequestException(
-        'Add an email address or phone number to this staff record first',
-      );
-    }
+    return staff;
+  }
 
-    // UsersService enforces the no-escalation rules on the roles.
-    const userDto: CreateUserDto = {
-      fullName: displayName(staff),
-      email: staff.email ?? undefined,
-      phone: staff.phone ?? undefined,
-      roleIds: dto.roleIds,
-    };
-    const created = await this.users.create(userDto, actor);
-    await this.prisma.staff.update({
+  private async attachLogin(
+    tx: Tx,
+    id: string,
+    userId: string,
+    actor: AuthUser,
+    action: 'staff.login_created' | 'staff.login_linked',
+  ) {
+    const row = await tx.staff.update({
       where: { id },
-      data: { userId: created.user.id },
+      data: { userId },
+      select: DETAIL_SELECT,
     });
-    await this.audit.record({
+    await this.audit.recordIn(tx, {
       actor,
-      action: 'staff.login_created',
+      action,
       entityType: 'staff',
       entityId: id,
-      details: { userId: created.user.id },
+      details: { userId },
     });
-    return {
-      staff: await this.get(id),
-      temporaryPassword: created.temporaryPassword,
-    };
+    return toDetail(row);
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
