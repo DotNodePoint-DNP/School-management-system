@@ -61,11 +61,14 @@ export function getApiBaseUrl(): string {
   }
 
   const url = new URL(configured);
+  const loopbackHosts = ["localhost", "127.0.0.1", "[::1]"];
+  const localPreview = loopbackHosts.includes(url.hostname) &&
+    (typeof window === "undefined" || loopbackHosts.includes(window.location.hostname));
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") ||
     url.username ||
     url.password ||
-    (process.env.NODE_ENV === "production" && url.protocol !== "https:")
+    (process.env.NODE_ENV === "production" && url.protocol !== "https:" && !localPreview)
   ) {
     throw new Error(
       "NEXT_PUBLIC_API_URL must be a valid HTTPS backend URL in production.",

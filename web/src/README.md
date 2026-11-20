@@ -25,4 +25,4 @@ The workspace shown after sign-in is derived from the backend system roles (`ADM
 
 ## PWA
 
-The installable app is configured through `src/app/manifest.ts`, `public/icons/icon.svg`, and `public/sw.js`. The service worker is registered only in production and caches the app shell plus same-origin frontend resources. API and GraphQL paths are deliberately excluded so live school data is never served from a stale cache.
+The sign-in page advertises `public/manifest.webmanifest`. The installed app opens `/dashboard`. On secure origins, including localhost during development, `PortalWorker` registers workers scoped to `/auth` and `/dashboard`. The install offer lives on `/auth` before login. The worker provides a generic offline navigation response. The legacy `public/sw.js` retires the old root registration and its cache.
