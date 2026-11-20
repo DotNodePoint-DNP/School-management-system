@@ -26,8 +26,11 @@ const NAV_MODULES: NavModule[] = [
     slug: "family",
     label: "Family portal",
     icon: "users",
-    permissions: ["portal:access"],
-    sections: [],
+    sections: [
+      { slug: "children", label: "Children", permissions: ["portal:access"] },
+      { slug: "balance", label: "Family balance", permissions: ["portal:access"] },
+      { slug: "account", label: "Account", permissions: ["portal:access"] },
+    ],
   },
   {
     slug: "settings",

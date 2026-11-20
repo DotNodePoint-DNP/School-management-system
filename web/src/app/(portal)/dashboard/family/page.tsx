@@ -1,7 +1,5 @@
-import { requireDashboardPage } from "@/core/session/server";
-import FamilyWorkspace from "@/modules/family/FamilyWorkspace";
+import { openFirstSection } from "@/core/session/server";
 
-export default async function Page() {
-  await requireDashboardPage("/dashboard/family");
-  return <FamilyWorkspace />;
+export default function FamilyPage() {
+  return openFirstSection("family");
 }

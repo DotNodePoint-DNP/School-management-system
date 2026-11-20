@@ -55,6 +55,16 @@ describe("backend role and permission mapping", () => {
     expect(hasDashboardAccess(path + "/unknown", [grant])).toBe(false);
   });
 
+  it("opens Children first and guards each family section", () => {
+    const grants = ["portal:access"];
+    const family = modulesForPermissions(grants).find(item => item.slug === "family");
+    expect(family?.sections.map(section => section.slug)).toEqual(["children", "balance", "account"]);
+    for (const path of ["family", "family/children", "family/balance", "family/account"]) {
+      expect(hasDashboardAccess("/dashboard/" + path, grants)).toBe(true);
+      expect(hasDashboardAccess("/dashboard/" + path, [])).toBe(false);
+    }
+  });
+
   it("uses backend permissions for dashboard route access", () => {
     expect(
       hasDashboardAccess("/dashboard/Examination-Gradebook/results", [

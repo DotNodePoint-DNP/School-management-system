@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PrintableDocuments } from "@/components/PrintableDocuments";
 import {
   isRecord,
@@ -21,9 +21,7 @@ import {
   childReport,
   childResults,
   childSummary,
-  familyAccount,
   familyDocument,
-  familyFees,
   familyHome,
   familyTransaction,
   type ChildTab,
@@ -260,7 +258,7 @@ function Summary({
                     {isRecord(e.academicYear)
                       ? String(e.academicYear.name)
                       : ""}{" "}
-                    ? {String(e.className)} ? {String(e.sectionName)}
+                    &middot; {String(e.className)} &middot; {String(e.sectionName)}
                   </option>
                 ))}
               </select>
@@ -326,82 +324,64 @@ function ChildView({ id }: { id: string }) {
     </div>
   );
 }
-export default function FamilyWorkspace() {
+export default function FamilyChildren() {
   const home = useQuery({ queryKey: ["family", "home"], queryFn: familyHome });
-  const [child, setChild] = useState("");
-  const [view, setView] = useState<"children" | "account" | "fees">("children");
-  const family = useQuery({
-    queryKey: ["family", view],
-    queryFn: view === "account" ? familyAccount : familyFees,
-    enabled: view !== "children",
-  });
+  const cache = useQueryClient();
+  const [child, setChild] = useState(
+    () => cache.getQueryData<string>(["family", "selectedChild"]) ?? "",
+  );
   const selected =
     home.data?.children.find((c) => c.id === child) ?? home.data?.children[0];
   return (
-    <section className="mx-auto max-w-5xl space-y-6 text-ink">
+    <section className="mx-auto max-w-5xl space-y-6 p-4 text-ink sm:p-6">
       <header>
-        <h1 className="text-3xl font-semibold">Family portal</h1>
+        <h1 className="text-3xl font-semibold">Children</h1>
         {home.data && (
           <p className="mt-2 text-muted">
-            {home.data.guardian.name} · {home.data.asOf}
+            {home.data.guardian.name} &middot; {home.data.asOf}
           </p>
         )}
       </header>
-      <div className="flex flex-wrap gap-2">
-        {(["children", "fees", "account"] as const).map((v) => (
-          <button
-            key={v}
-            className={v === view ? primaryClass : buttonClass}
-            onClick={() => setView(v)}
-          >
-            {v === "fees" ? "Family balances" : humanLabel(v)}
-          </button>
-        ))}
-      </div>
-      {view !== "children" ? (
-        <div className={panelClass}>
-          <Failure error={family.error} retry={() => void family.refetch()} />
-          {family.isPending && <p>Loading…</p>}
-          {family.data && <RecordDetails value={family.data} />}
-        </div>
-      ) : (
+      <Failure error={home.error} retry={() => void home.refetch()} />
+      {home.isPending && <p>Loading family records…</p>}
+      {home.data?.children.length === 0 && (
+        <p>No children are linked to this account.</p>
+      )}
+      {selected && (
         <>
-          <Failure error={home.error} retry={() => void home.refetch()} />
-          {home.isPending && <p>Loading family records…</p>}
-          {home.data?.children.length === 0 && (
-            <p>No children are linked to this account.</p>
-          )}
-          {selected && (
-            <>
-              <div className="grid gap-4 rounded-xl bg-mint p-5 sm:grid-cols-2">
-                <Field label="Student">
-                  <select
-                    className={inputClass}
-                    value={selected.id}
-                    onChange={(e) => setChild(e.target.value)}
-                  >
-                    {home.data?.children.map((c) => (
-                      <option value={c.id} key={c.id}>
-                        {c.name} · {c.admissionNo}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <div className="self-end">
-                  <p>
-                    {selected.current &&
-                      selected.current.className +
-                        " · " +
-                        selected.current.sectionName}
-                  </p>
-                  <p className="font-semibold">
-                    Outstanding · NPR {selected.fees?.outstanding ?? 0}
-                  </p>
-                </div>
-              </div>
-              <ChildView key={selected.id} id={selected.id} />
-            </>
-          )}
+          <div className="grid gap-4 rounded-xl bg-mint p-5 sm:grid-cols-2">
+            <Field label="Student">
+              <select
+                className={inputClass}
+                value={selected.id}
+                onChange={(e) => {
+                  setChild(e.target.value);
+                  cache.setQueryData(
+                    ["family", "selectedChild"],
+                    e.target.value,
+                  );
+                }}
+              >
+                {home.data?.children.map((c) => (
+                  <option value={c.id} key={c.id}>
+                    {c.name} · {c.admissionNo}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="self-end">
+              <p>
+                {selected.current &&
+                  selected.current.className +
+                    " · " +
+                    selected.current.sectionName}
+              </p>
+              <p className="font-semibold">
+                Outstanding · NPR {selected.fees?.outstanding ?? 0}
+              </p>
+            </div>
+          </div>
+          <ChildView key={selected.id} id={selected.id} />
         </>
       )}
     </section>
