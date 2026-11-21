@@ -1,9 +1,20 @@
-import { modulesForPermissions } from "@/modules/dashboard/components/Navigation";
+import { matchDashboardPath, modulesForPermissions } from "@/modules/dashboard/components/Navigation";
 import { describe, expect, it } from "vitest";
 import { currentUserFromApi } from "@/core/authorization/roles";
 import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
 
 describe("backend role and permission mapping", () => {
+  it("keeps visible modules in the agreed sidebar order", () => {
+    const grants = ["audit-logs:read", "portal:access", "fees:read", "results:read",
+      "attendance:read", "subjects:read", "staff:read", "guardians:read"];
+    expect(modulesForPermissions(grants).map(module => module.label)).toEqual([
+      "Students & Guardians", "Staff", "Academics", "Attendance", "Exams & Results",
+      "Finance", "Family Portal", "Administration",
+    ]);
+    expect(modulesForPermissions(["portal:access", "staff:read"]).map(module => module.label))
+      .toEqual(["Staff", "Family Portal"]);
+  });
+
   it("derives the workspace from backend roles, not user-selected input", () => {
     const user = currentUserFromApi({
       id: "admin-1",
@@ -63,6 +74,29 @@ describe("backend role and permission mapping", () => {
       expect(hasDashboardAccess("/dashboard/" + path, grants)).toBe(true);
       expect(hasDashboardAccess("/dashboard/" + path, [])).toBe(false);
     }
+  });
+
+  it.each([
+    ["guardians:read", "/dashboard/student-info/parent-directory/123", "Students & Guardians"],
+    ["students:read", "/dashboard/Admission-Enrollment/students", "Students & Guardians"],
+    ["staff:read", "/dashboard/student-info/teacher-directory/123", "Staff"],
+    ["academic-years:read", "/dashboard/settings/academic-year", "Academics"],
+    ["exams:read", "/dashboard/settings/grading-scale", "Exams & Results"],
+    ["audit-logs:read", "/dashboard/settings/audit-log", "Administration"],
+  ])("resolves %s to its sidebar group and protects deep links", (grant, path, group) => {
+    expect(matchDashboardPath(modulesForPermissions([grant]), path)?.module.label).toBe(group);
+    expect(hasDashboardAccess(path, [grant])).toBe(true);
+    expect(hasDashboardAccess(path, ["portal:access"])).toBe(false);
+    expect(hasDashboardAccess(path + "/extra", [grant])).toBe(false);
+  });
+
+  it("keeps legacy module bookmarks usable with only a moved section grant", () => {
+    const grants = modulesForPermissions(["classes:read"]);
+    expect(grants.map(m => m.label)).toEqual(["Academics"]);
+    expect(grants[0].sections.map(s => s.slug)).toEqual(["class-section-setup"]);
+    expect(matchDashboardPath(grants, "/dashboard/settings")?.section?.slug).toBe("class-section-setup");
+    expect(hasDashboardAccess("/dashboard/settings/school-profile", ["classes:read"])).toBe(false);
+    expect(hasDashboardAccess("/dashboard/student-info", ["staff:read"])).toBe(true);
   });
 
   it("uses backend permissions for dashboard route access", () => {

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Book,
-  ChevronLeft,
+  ChevronRight,
   Menu,
   Settings,
   Users,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import {
   DASHBOARD_HREF,
+  matchDashboardPath,
   moduleHref,
   sectionHref,
   type IconName,
@@ -45,20 +46,16 @@ const row =
 export function DashboardShell({
   modules,
   user,
-  header,
   children,
 }: {
   modules: NavModule[];
   user: ShellUser;
-  header?: ReactNode; // Slot for AppHeader / DashboardHeader
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Source of truth URL parsing: /dashboard/<module>/<section>
-  const moduleSlug = pathname.split("/").filter(Boolean)[1];
-  const activeModule = modules.find((m) => m.slug === moduleSlug);
+  const match = matchDashboardPath(modules, pathname);
 
   const [previousPath, setPreviousPath] = useState(pathname);
   if (pathname !== previousPath) {
@@ -75,8 +72,8 @@ export function DashboardShell({
   const sidebar = (
     <SidebarContent
       modules={modules}
-      activeModule={activeModule}
-      pathname={pathname}
+      activeModule={match?.module}
+      activeSection={match?.section?.slug}
       user={user}
     />
   );
@@ -111,8 +108,7 @@ export function DashboardShell({
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Render header if provided; show mobile menu button when collapsed */}
-        <div className="sticky top-0 z-30 flex items-center border-b border-line bg-panel/90 backdrop-blur-md">
+        <div className="sticky top-0 z-30 flex items-center md:hidden border-b border-line bg-panel/90 backdrop-blur-md">
           <div className="flex h-16 items-center px-3 md:hidden">
             <button
               aria-label="Open menu"
@@ -122,7 +118,6 @@ export function DashboardShell({
               <Menu className="size-5" />
             </button>
           </div>
-          <div className="flex-1">{header}</div>
         </div>
 
         <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-5 md:p-8">{children}</main>
@@ -134,73 +129,53 @@ export function DashboardShell({
 function SidebarContent({
   modules,
   activeModule,
-  pathname,
+  activeSection,
   user,
 }: {
   modules: NavModule[];
   activeModule?: NavModule;
-  pathname: string;
+  activeSection?: string;
   user: ShellUser;
 }) {
   return (
     <>
       {/* Header section in sidebar */}
       <div className="flex h-16 shrink-0 items-center border-b border-line px-2">
-        {activeModule ? (
-          <Link
-            href={DASHBOARD_HREF}
-            aria-label={`Back to dashboard from ${activeModule.label}`}
-            className={`${row} font-semibold text-ink hover:text-teal`}
-          >
-            <ChevronLeft className="size-4 shrink-0 text-muted" />
-            <span className="truncate">{activeModule.label}</span>
-          </Link>
-        ) : (
-          <Link href={DASHBOARD_HREF} className={`${row} font-semibold text-ink`}>
-            <span className="truncate">Dashboard</span>
-          </Link>
-        )}
+        <Link href={DASHBOARD_HREF} className={row + " font-semibold text-ink"}>
+          Dashboard
+        </Link>
       </div>
-
-      {/* Navigation Links */}
-      <nav
-        aria-label={activeModule ? `${activeModule.label} sections` : "Modules"}
-        className="flex-1 overflow-y-auto py-2"
-      >
-        {activeModule?.sections.length
-          ? activeModule.sections.map((section) => {
-              const href = sectionHref(activeModule, section);
-              const active = pathname === href;
-              const Icon = ICONS[section.icon ?? activeModule.icon];
-              return (
-                <Link
-                  key={section.slug}
-                  href={href}
-                  aria-current={active ? "page" : undefined}
-                  className={`${row} ${
-                    active
-                      ? "bg-mint/80 font-bold text-navy dark:bg-mint/20 dark:text-teal"
-                      : "text-muted hover:bg-line/50 hover:text-ink"
-                  }`}
-                >
-                  <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
-                  <span className="truncate">{section.label}</span>
-                </Link>
-              );
-            })
-          : modules.map((module) => {
-              const Icon = ICONS[module.icon];
-              return (
-                <Link
-                  key={module.slug}
-                  href={moduleHref(module)}
-                  className={`${row} text-muted hover:bg-line/50 hover:text-ink`}
-                >
-                  <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
-                  <span className="truncate">{module.label}</span>
-                </Link>
-              );
-            })}
+      <nav aria-label="Modules" className="flex-1 overflow-y-auto py-2">
+        {modules.map((module) => {
+          const Icon = ICONS[module.icon];
+          const current = module.slug === activeModule?.slug;
+          return (
+            <div key={module.slug}>
+              <Link href={moduleHref(module)}
+                aria-current={current && !activeSection ? "page" : undefined}
+                className={row + (current ? " bg-mint font-semibold text-ink" : " text-muted hover:bg-line/50 hover:text-ink")}>
+                <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+                <span className="min-w-0 flex-1 truncate">{module.label}</span>
+                <ChevronRight aria-hidden="true" className={current ? "size-4 rotate-90" : "size-4"} />
+              </Link>
+              {current && (
+                <ul aria-label={module.label + " sections"} className="ml-7 border-l border-line py-1">
+                  {module.sections.map((section) => {
+                    const selected = activeSection === section.slug;
+                    return (
+                      <li key={section.slug}>
+                        <Link href={sectionHref(module, section)} aria-current={selected ? "page" : undefined}
+                          className={row + (selected ? " font-semibold text-teal" : " text-muted hover:bg-line/50 hover:text-ink")}>
+                          <span className="truncate">{section.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer User Profile Summary in Sidebar */}

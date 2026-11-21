@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
 import {
-  findModule,
+  matchDashboardPath,
+  modulesForPermissions,
   sectionHref,
 } from "@/modules/dashboard/components/Navigation";
 import { cookies } from "next/headers";
@@ -22,7 +23,7 @@ export async function requireDashboardPage(path: string) {
 
 export async function openFirstSection(slug: string): Promise<never> {
   const user = await requireDashboardPage("/dashboard/" + slug);
-  const workspace = findModule(user.permissions, slug);
-  if (!workspace?.sections.length) redirect("/dashboard/access-denied");
-  redirect(sectionHref(workspace, workspace.sections[0]));
+  const match = matchDashboardPath(modulesForPermissions(user.permissions), "/dashboard/" + slug);
+  if (!match) redirect("/dashboard/access-denied");
+  redirect(sectionHref(match.module, match.section ?? match.module.sections[0]));
 }

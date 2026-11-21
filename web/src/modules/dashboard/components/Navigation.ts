@@ -11,6 +11,8 @@ export type IconName =
 export type NavSection = {
   slug: string;
   label: string;
+  href?: string;
+  hasDetail?: boolean;
   icon?: IconName;
   permissions: readonly string[];
 };
@@ -19,96 +21,11 @@ export type NavModule = {
   label: string;
   icon: IconName;
   sections: NavSection[];
-  permissions?: readonly string[];
 };
 const NAV_MODULES: NavModule[] = [
   {
-    slug: "family",
-    label: "Family portal",
-    icon: "users",
-    sections: [
-      { slug: "children", label: "Children", permissions: ["portal:access"] },
-      { slug: "balance", label: "Family balance", permissions: ["portal:access"] },
-      { slug: "account", label: "Account", permissions: ["portal:access"] },
-    ],
-  },
-  {
-    slug: "settings",
-    label: "Settings & School Setup",
-    icon: "settings",
-    sections: [
-      {
-        slug: "school-profile",
-        label: "School profile",
-        permissions: ["school:manage"],
-      },
-      {
-        slug: "signatories",
-        label: "Signatories & letterhead",
-        permissions: ["school:manage-signatories"],
-      },
-      {
-        slug: "academic-year",
-        label: "Academic year",
-        permissions: ["academic-years:read"],
-      },
-      {
-        slug: "roles-permissions",
-        label: "Roles & permissions",
-        permissions: ["roles:read"],
-      },
-      {
-        slug: "user-management",
-        label: "User management",
-        permissions: ["users:read", "users:create"],
-      },
-      {
-        slug: "audit-log",
-        label: "Audit log",
-        permissions: ["audit-logs:read"],
-      },
-      {
-        slug: "class-section-setup",
-        label: "Classes & sections",
-        permissions: ["classes:read"],
-      },
-      {
-        slug: "grading-scale",
-        label: "Grading scale",
-        permissions: ["exams:read"],
-      },
-      {
-        slug: "document-template",
-        label: "Document & notification templates",
-        permissions: ["school:manage"],
-      },
-    ],
-  },
-  {
-    slug: "student-info",
-    label: "School information",
-    icon: "users",
-    sections: [
-      {
-        slug: "student-directory",
-        label: "Student directory",
-        permissions: ["students:read", "students:read-all"],
-      },
-      {
-        slug: "teacher-directory",
-        label: "Teacher directory",
-        permissions: ["staff:read", "staff:manage"],
-      },
-      {
-        slug: "parent-directory",
-        label: "Parent directory",
-        permissions: ["guardians:read"],
-      },
-    ],
-  },
-  {
     slug: "Admission-Enrollment",
-    label: "Admission & enrollment",
+    label: "Students & Guardians",
     icon: "users",
     sections: [
       {
@@ -138,9 +55,18 @@ const NAV_MODULES: NavModule[] = [
         ],
       },
       {
-        slug: "students",
-        label: "Student register",
+        slug: "student-directory",
+        label: "Student directory",
+        href: "/dashboard/student-info/student-directory",
+        hasDetail: true,
         permissions: ["students:read", "students:read-all"],
+      },
+      {
+        slug: "parent-directory",
+        label: "Guardian directory",
+        href: "/dashboard/student-info/parent-directory",
+        hasDetail: true,
+        permissions: ["guardians:read"],
       },
     ],
   },
@@ -154,6 +80,13 @@ const NAV_MODULES: NavModule[] = [
         label: "Staff directory",
         permissions: ["staff:read", "staff:manage"],
       },
+      {
+        slug: "teacher-directory",
+        label: "Teacher directory",
+        href: "/dashboard/student-info/teacher-directory",
+        hasDetail: true,
+        permissions: ["staff:read", "staff:manage"],
+      },
     ],
   },
   {
@@ -161,6 +94,18 @@ const NAV_MODULES: NavModule[] = [
     label: "Academics",
     icon: "book",
     sections: [
+      {
+        slug: "academic-year",
+        label: "Academic years",
+        href: "/dashboard/settings/academic-year",
+        permissions: ["academic-years:read"],
+      },
+      {
+        slug: "class-section-setup",
+        label: "Classes & sections",
+        href: "/dashboard/settings/class-section-setup",
+        permissions: ["classes:read"],
+      },
       {
         slug: "subjects",
         label: "Subjects & curriculum",
@@ -233,10 +178,16 @@ const NAV_MODULES: NavModule[] = [
   },
   {
     slug: "Examination-Gradebook",
-    label: "Examination & gradebook",
+    label: "Exams & Results",
     icon: "book",
     sections: [
       { slug: "exam-setup", label: "Exam setup", permissions: ["exams:read"] },
+      {
+        slug: "grading-scale",
+        label: "Grading scale",
+        href: "/dashboard/settings/grading-scale",
+        permissions: ["exams:read"],
+      },
       {
         slug: "exam-schedule",
         label: "Exam schedule",
@@ -286,12 +237,87 @@ const NAV_MODULES: NavModule[] = [
     icon: "wallet",
     sections: financeSections,
   },
+  {
+    slug: "family",
+    label: "Family Portal",
+    icon: "users",
+    sections: [
+      { slug: "children", label: "Children", permissions: ["portal:access"] },
+      { slug: "balance", label: "Family balance", permissions: ["portal:access"] },
+      { slug: "account", label: "Account", permissions: ["portal:access"] },
+    ],
+  },
+  {
+    slug: "settings",
+    label: "Administration",
+    icon: "settings",
+    sections: [
+      {
+        slug: "school-profile",
+        label: "School profile",
+        permissions: ["school:manage"],
+      },
+      {
+        slug: "signatories",
+        label: "Signatories & letterhead",
+        permissions: ["school:manage-signatories"],
+      },
+      {
+        slug: "roles-permissions",
+        label: "Roles & permissions",
+        permissions: ["roles:read"],
+      },
+      {
+        slug: "user-management",
+        label: "User management",
+        permissions: ["users:read", "users:create"],
+      },
+      {
+        slug: "audit-log",
+        label: "Audit log",
+        permissions: ["audit-logs:read"],
+      },
+      {
+        slug: "document-template",
+        label: "Document & notification templates",
+        permissions: ["school:manage"],
+      },
+    ],
+  },
 ];
 
 export const DASHBOARD_HREF = "/dashboard";
 export const moduleHref = (m: NavModule) => `${DASHBOARD_HREF}/${m.slug}`;
 export const sectionHref = (m: NavModule, s: NavSection) =>
-  `${moduleHref(m)}/${s.slug}`;
+  s.href ?? `${moduleHref(m)}/${s.slug}`;
+
+const aliases = new Map([
+  ["/dashboard/settings/fee-structure", "/dashboard/finance/fee-heads"],
+  ["/dashboard/student-info/admissions", "/dashboard/Admission-Enrollment/overview"],
+  ["/dashboard/Admission-Enrollment/students", "/dashboard/student-info/student-directory"],
+  ["/dashboard/Examination-Gradebook/grade-book", "/dashboard/Examination-Gradebook/results"],
+]);
+
+export function matchDashboardPath(modules: NavModule[], pathname: string) {
+  const path = pathname.replace(/\/+$/, "");
+  const target = aliases.get(path) ?? path;
+  for (const module of modules) {
+    if (moduleHref(module) === path) return { module };
+    for (const section of module.sections) {
+      const href = sectionHref(module, section);
+      if (target === href) return { module, section };
+      if (section.hasDetail && path.startsWith(href + "/") &&
+          !path.slice(href.length + 1).includes("/")) return { module, section };
+    }
+  }
+  // Retired directory root and bookmarks to a module whose sections moved.
+  if (path === "/dashboard/student-info" || path === "/dashboard/settings") {
+    for (const module of modules) {
+      const section = module.sections.find(s => sectionHref(module, s).startsWith(path + "/"));
+      if (section) return { module, section };
+    }
+  }
+}
 
 export function modulesForPermissions(
   permissions: readonly string[],
@@ -302,10 +328,7 @@ export function modulesForPermissions(
     const sections = module.sections.filter((section) =>
       allowed(section.permissions),
     );
-    return sections.length ||
-      (module.permissions && allowed(module.permissions))
-      ? [{ ...module, sections }]
-      : [];
+    return sections.length ? [{ ...module, sections }] : [];
   });
 }
 export function findModule(permissions: readonly string[], slug: string) {

@@ -3,11 +3,12 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ShieldCheck,
   ChevronDown,
   LogOut,
-  Bug,
+  Bell,
   Settings,
   Building2,
 } from "lucide-react";
@@ -61,10 +62,6 @@ export default function DashboardHeader({ user }: { user?: HeaderUser }) {
     }
   };
 
-  const handleStaticReportBug = () => {
-    alert("Report Bug clicked!");
-  };
-
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full shrink-0 items-center justify-between border-b border-line bg-panel/90 px-3 sm:px-6 backdrop-blur-md transition-colors">
       {/* App Branding Context */}
@@ -84,11 +81,12 @@ export default function DashboardHeader({ user }: { user?: HeaderUser }) {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={handleStaticReportBug}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-3 py-1.5 text-xs font-semibold text-ink shadow-2xs transition hover:border-coral/40 hover:bg-coral/10 hover:text-coral focus:outline-hidden"
+          disabled
+          aria-label="Notifications (coming soon)"
+          title="Notifications (coming soon)"
+          className="grid size-10 place-items-center rounded-md border border-line bg-background text-muted disabled:cursor-default"
         >
-          <Bug className="h-3.5 w-3.5 text-coral" />
-          <span className="hidden sm:inline">Report Bug</span>
+          <Bell aria-hidden="true" className="size-4" />
         </button>
 
         <div className="flex items-center border-l border-line pl-3">
@@ -119,8 +117,8 @@ export default function DashboardHeader({ user }: { user?: HeaderUser }) {
             </div>
 
             <div className="hidden text-left md:block">
-              <span className="block text-xs font-bold leading-none text-ink group-hover:text-teal">
-                {currentUser.displayName.slice(0, 10)}...
+              <span className="block max-w-36 truncate text-xs font-bold leading-none text-ink group-hover:text-teal">
+                  {currentUser.displayName}
               </span>
               <span className="mt-1 inline-flex items-center rounded-xs bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-navy dark:bg-mint/20 dark:text-teal">
                 {currentUser.roleLabel}
@@ -149,14 +147,14 @@ export default function DashboardHeader({ user }: { user?: HeaderUser }) {
               </div>
 
               <div className="py-1">
-                <button
-                  type="button"
+                <Link
+                  href="/me"
                   onClick={() => setIsProfileOpen(false)}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-ink transition hover:bg-background"
                 >
                   <Settings className="h-3.5 w-3.5 text-muted" />
                   Account Settings
-                </button>
+                </Link>
               </div>
 
               <div className="border-t border-line pt-1">

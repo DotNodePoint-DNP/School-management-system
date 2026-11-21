@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, CalendarCheck, Wallet, BookOpen } from "lucide-react";
-import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
+import { matchDashboardPath, moduleHref, modulesForPermissions } from "@/modules/dashboard/components/Navigation";
 
 const shortcuts = [
   { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/Admission-Enrollment", label: "Admissions", icon: Users },
+  { href: "/dashboard/Admission-Enrollment", label: "Students", icon: Users },
   { href: "/dashboard/attendance", label: "Attendance", icon: CalendarCheck },
   { href: "/dashboard/finance", label: "Finance", icon: Wallet },
   { href: "/dashboard/family", label: "Family", icon: BookOpen },
@@ -15,17 +15,19 @@ const shortcuts = [
 
 export function QuickAccessBar({ permissions }: { permissions: string[] }) {
   const pathname = usePathname();
+  const modules = modulesForPermissions(permissions);
+  const current = matchDashboardPath(modules, pathname);
   return (
     <nav
       aria-label="Quick access"
       className="flex shrink-0 justify-center gap-1 border-t border-line bg-panel px-2 pb-[env(safe-area-inset-bottom)] md:hidden print:hidden"
     >
       {shortcuts
-        .filter((s) => hasDashboardAccess(s.href, permissions))
+        .filter((s) => s.href === "/dashboard" || modules.some(m => moduleHref(m) === s.href))
         .map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
-            (href !== "/dashboard" && pathname.startsWith(href + "/"));
+            (current && moduleHref(current.module) === href);
           return (
             <Link
               aria-current={active ? "page" : undefined}

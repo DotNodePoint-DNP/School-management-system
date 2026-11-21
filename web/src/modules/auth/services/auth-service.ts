@@ -69,6 +69,20 @@ export async function getAuthenticatedUser(): Promise<CurrentUser> {
   return result.user;
 }
 
+export async function saveProfile(fullName: string): Promise<CurrentUser> {
+  const update = () => authRequest<{ user: CurrentUser }>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({ fullName }),
+  });
+  try {
+    return (await update()).user;
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || error.status !== 401) throw error;
+    await refreshSession();
+    return (await update()).user;
+  }
+}
+
 export async function changePassword(
   input: ChangePasswordRequest,
 ): Promise<void> {
