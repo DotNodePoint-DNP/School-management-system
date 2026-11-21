@@ -10,6 +10,7 @@ export interface Child {
     enrollmentId: string;
   } | null;
   attendance: { percentage: number | null } | null;
+  latestResult: { status: string; percentage: number | null } | null;
   fees: { outstanding: number } | null;
 }
 export interface FamilyHome {
@@ -37,6 +38,31 @@ export interface Result {
   percentage: number | null;
 }
 const childPath = (id: string) => "/portal/children/" + encodeURIComponent(id);
+export interface ChildProfile {
+  id: string;
+  name: string;
+  nameNp: string | null;
+  admissionNo: string;
+  status: string;
+  gender: string;
+  dateOfBirth: string;
+  dateOfBirthBs: string | null;
+  admissionDate: string;
+  admissionDateBs: string | null;
+  statusChangedOn: string | null;
+  statusChangedOnBs: string | null;
+  enrollments: {
+    enrollmentId: string;
+    academicYear: { id: string; name: string };
+    className: string;
+    sectionName: string;
+    rollNo: number | null;
+    status: string;
+  }[];
+  guardians: { name: string; relationship: string; isPrimary: boolean }[];
+}
+export const childProfile = (id: string) =>
+  createApiClient().get<ChildProfile>(childPath(id));
 export const familyHome = () =>
   createApiClient().get<FamilyHome>("/portal/home");
 export const familyAccount = () =>
@@ -45,12 +71,9 @@ export const familyFees = () =>
   createApiClient().get<FamilyRecord>("/portal/fees");
 export const childSummary = (
   id: string,
-  tab: "profile" | "attendance" | "statement" | "fees",
+  tab: "attendance" | "statement" | "fees",
   query: string,
-) =>
-  createApiClient().get<FamilyRecord>(
-    childPath(id) + (tab === "profile" ? "" : "/" + tab) + query,
-  );
+) => createApiClient().get<FamilyRecord>(childPath(id) + "/" + tab + query);
 export const childRegister = (
   id: string,
   tab: "invoices" | "payments",

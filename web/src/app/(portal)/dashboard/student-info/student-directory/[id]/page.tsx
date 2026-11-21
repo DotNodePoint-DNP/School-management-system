@@ -1,5 +1,5 @@
 import { requireDashboardPage } from "@/core/session/server";
-import StudentsWorkspace from "@/modules/admissions/StudentsWorkspace";
+import { DirectoryProfile } from "@/modules/admissions/DirectoryProfile";
 
 export default async function StudentDetailPage({
   params,
@@ -8,5 +8,5 @@ export default async function StudentDetailPage({
 }) {
   const user = await requireDashboardPage("/dashboard/student-info/student-directory");
   const { id } = await params;
-  return <StudentsWorkspace permissions={user.permissions} initialSelectedId={id} />;
+  return <DirectoryProfile key={id} permissions={user.permissions} selectedId={id} />;
 }

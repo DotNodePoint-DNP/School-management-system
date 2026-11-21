@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
   childRegister,
+  childProfile,
   childSummary,
   familyDocument,
   familyTransaction,
@@ -28,6 +29,15 @@ it("retains page metadata and child scope when a parent filters outstanding invo
   expect(fetcher).toHaveBeenCalledWith(
     "https://school.example.test/api/v1/portal/children/child%2Fa/invoices?page=2&pageSize=10&status=OPEN",
     expect.any(Object),
+  );
+});
+
+it("loads the family profile through the child-scoped portal endpoint", async () => {
+  const fetcher = transport({ id: "child/a", guardians: [], enrollments: [] });
+  await childProfile("child/a");
+  expect(fetcher).toHaveBeenCalledWith(
+    "https://school.example.test/api/v1/portal/children/child%2Fa",
+    expect.objectContaining({ credentials: "include" }),
   );
 });
 

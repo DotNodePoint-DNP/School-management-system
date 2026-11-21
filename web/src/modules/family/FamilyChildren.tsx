@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PrintableDocuments } from "@/components/PrintableDocuments";
+import { StudentProfile } from "@/modules/students/StudentProfile";
 import {
   isRecord,
   RecordDetails,
@@ -17,6 +18,7 @@ import {
   primaryClass,
 } from "@/components/ui/WorkspaceFields";
 import {
+  childProfile,
   childRegister,
   childReport,
   childResults,
@@ -25,6 +27,7 @@ import {
   familyHome,
   familyTransaction,
   type ChildTab,
+  type Child,
   type FamilyDocument,
 } from "./services/portal";
 
@@ -218,12 +221,12 @@ function Summary({
   tab,
 }: {
   id: string;
-  tab: "profile" | "fees" | "attendance" | "statement";
+  tab: "fees" | "attendance" | "statement";
 }) {
   const [range, setRange] = useState<Record<string, string>>({});
   const profile = useQuery({
-    queryKey: ["family", id, "profile", {}],
-    queryFn: () => childSummary(id, "profile", ""),
+    queryKey: ["family", id, "profile"],
+    queryFn: () => childProfile(id),
     enabled: tab === "attendance",
   });
   const enrollments = profile.data?.enrollments;
@@ -258,7 +261,8 @@ function Summary({
                     {isRecord(e.academicYear)
                       ? String(e.academicYear.name)
                       : ""}{" "}
-                    &middot; {String(e.className)} &middot; {String(e.sectionName)}
+                    &middot; {String(e.className)} &middot;{" "}
+                    {String(e.sectionName)}
                   </option>
                 ))}
               </select>
@@ -286,8 +290,14 @@ function Summary({
     </div>
   );
 }
-function ChildView({ id }: { id: string }) {
+function ChildView({ child }: { child: Child }) {
+  const id = child.id;
   const [tab, setTab] = useState<ChildTab>("profile");
+  const profile = useQuery({
+    queryKey: ["family", id, "profile"],
+    queryFn: () => childProfile(id),
+    enabled: tab === "profile",
+  });
   const tabs: ChildTab[] = [
     "profile",
     "attendance",
@@ -311,16 +321,61 @@ function ChildView({ id }: { id: string }) {
           </button>
         ))}
       </nav>
-      <article className={panelClass}>
-        <h2 className="mb-4 text-xl font-semibold">{humanLabel(tab)}</h2>
-        {tab === "invoices" || tab === "payments" ? (
-          <TransactionList key={tab} id={id} tab={tab} />
-        ) : tab === "results" ? (
-          <Results id={id} />
-        ) : (
-          <Summary key={tab} id={id} tab={tab} />
-        )}
-      </article>
+      {tab === "profile" ? (
+        <div className="space-y-4">
+          <Failure error={profile.error} retry={() => void profile.refetch()} />
+          {profile.isPending && <p role="status">Loading student profile…</p>}
+          {profile.isSuccess && (
+            <>
+              <StudentProfile
+                record={profile.data}
+                history={profile.data.enrollments}
+                current={profile.data.enrollments.find(
+                  (e) => e.enrollmentId === child.current?.enrollmentId,
+                )}
+              />
+              <dl className="grid gap-3 sm:grid-cols-3">
+                {[
+                  [
+                    "Attendance · last 30 days",
+                    child.attendance?.percentage != null
+                      ? child.attendance.percentage + "%"
+                      : "No attendance recorded",
+                  ],
+                  [
+                    "Latest released result",
+                    child.latestResult?.percentage != null
+                      ? child.latestResult.percentage + "%"
+                      : (child.latestResult?.status ?? "No released result"),
+                  ],
+                  [
+                    "Outstanding fees",
+                    child.fees
+                      ? "NPR " + child.fees.outstanding.toLocaleString()
+                      : "Balance unavailable",
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label} className={panelClass}>
+                    <dt className="text-xs text-muted">{label}</dt>
+                    <dd className="mt-1 text-lg font-semibold">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          )}
+        </div>
+      ) : (
+        <article className={panelClass}>
+          <h2 className="mb-4 text-xl font-semibold">{humanLabel(tab)}</h2>
+          {tab === "invoices" || tab === "payments" ? (
+            <TransactionList key={tab} id={id} tab={tab} />
+          ) : tab === "results" ? (
+            <Results id={id} />
+          ) : (
+            <Summary key={tab} id={id} tab={tab} />
+          )}
+        </article>
+      )}
     </div>
   );
 }
@@ -347,9 +402,9 @@ export default function FamilyChildren() {
       {home.data?.children.length === 0 && (
         <p>No children are linked to this account.</p>
       )}
-      {selected && (
+      {home.isSuccess && selected && (
         <>
-          <div className="grid gap-4 rounded-xl bg-mint p-5 sm:grid-cols-2">
+          <div className="max-w-md">
             <Field label="Student">
               <select
                 className={inputClass}
@@ -369,19 +424,8 @@ export default function FamilyChildren() {
                 ))}
               </select>
             </Field>
-            <div className="self-end">
-              <p>
-                {selected.current &&
-                  selected.current.className +
-                    " · " +
-                    selected.current.sectionName}
-              </p>
-              <p className="font-semibold">
-                Outstanding · NPR {selected.fees?.outstanding ?? 0}
-              </p>
-            </div>
           </div>
-          <ChildView key={selected.id} id={selected.id} />
+          <ChildView key={selected.id} child={selected} />
         </>
       )}
     </section>

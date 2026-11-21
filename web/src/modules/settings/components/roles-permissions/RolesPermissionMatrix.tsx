@@ -1,16 +1,11 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { RecordDisclosure } from "@/components/RecordDisclosure";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import {
   createRbacRole,
-  getRbacRole,
   deleteRbacRole,
   listRbacPermissions,
   listRbacRoles,
@@ -53,18 +48,13 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
   );
   const canEditRoleDetails =
     canManage && (!selectedRole || !selectedRole.isSystem);
-  const canEditRolePermissions =
-    canManage && selectedRole?.name !== "ADMIN";
+  const canEditRolePermissions = canManage && selectedRole?.name !== "ADMIN";
 
   const createMutation = useMutation({
     mutationFn: createRbacRole,
     onSuccess: async (role) => {
       await queryClient.invalidateQueries({ queryKey: rolesQueryKey });
-      setSelectedRoleId(role.id);
-      setIsCreating(false);
-      setName("");
-      setDescription("");
-      setSelectedPermissions([]);
+      selectRole(role);
       setNotice(`Role "${role.name}" created.`);
     },
   });
@@ -105,10 +95,13 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
     },
   });
 
-  const groups = useMemo(
-    () => permissionsQuery.data ?? [],
-    [permissionsQuery.data],
-  );
+  const groups = permissionsQuery.data ?? [];
+  const permissionsChanged =
+    selectedRole &&
+    (selectedPermissions.length !== selectedRole.permissions.length ||
+      selectedPermissions.some(
+        (code) => !selectedRole.permissions.includes(code),
+      ));
   const isPending =
     createMutation.isPending ||
     updateMutation.isPending ||
@@ -205,10 +198,11 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
           Loading roles and permissions…
         </p>
       ) : rolesQuery.isError || permissionsQuery.isError ? (
-        <div className="rounded-md border border-coral bg-panel p-4 text-sm text-coral" role="alert">
-          <p>
-            {errorMessage(rolesQuery.error ?? permissionsQuery.error)}
-          </p>
+        <div
+          className="rounded-md border border-coral bg-panel p-4 text-sm text-coral"
+          role="alert"
+        >
+          <p>{errorMessage(rolesQuery.error ?? permissionsQuery.error)}</p>
           <button
             className="mt-2 font-medium text-navy underline dark:text-teal"
             onClick={() => {
@@ -232,6 +226,7 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
                       aria-pressed={selectedRoleId === role.id}
                       className="w-full rounded-md border border-line bg-panel p-3 text-left transition-colors hover:border-teal hover:bg-mint aria-pressed:border-teal aria-pressed:bg-mint dark:hover:bg-mint"
                       onClick={() => selectRole(role)}
+                      disabled={isPending}
                       type="button"
                     >
                       <span className="block font-medium">{role.name}</span>
@@ -251,121 +246,216 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
 
           <div className="min-w-0 space-y-5">
             {isCreating || selectedRole ? (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold">
-                    {isCreating ? "Create a role" : selectedRole?.name}
-                  </h2>
-                  {!isCreating && selectedRole && canManage && (
-                    <button
-                      className="rounded-md border border-coral px-3 py-1.5 text-sm text-coral transition-colors hover:bg-coral/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:opacity-50"
-                      disabled={isPending || selectedRole.isSystem}
-                      onClick={removeRole}
-                      type="button"
-                    >
-                      Delete role
-                    </button>
-                  )}
-                </div>
+              <div key={selectedRole?.id ?? "create"} className="space-y-5">
+                <section className="space-y-4 rounded-xl border border-line bg-panel p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="break-words text-xl font-semibold text-ink">
+                      {isCreating ? "Create a role" : selectedRole?.name}
+                    </h2>
+                    {selectedRole && !selectedRole.isSystem && canManage && (
+                      <button
+                        className="rounded-md border border-coral px-3 py-1.5 text-sm text-coral transition-colors hover:bg-coral/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:opacity-50"
+                        disabled={isPending || selectedRole.isSystem}
+                        onClick={removeRole}
+                        type="button"
+                      >
+                        Delete role
+                      </button>
+                    )}
+                  </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="space-y-1 text-sm">
-                    <span>Role name</span>
-                    <input
-                      className="w-full rounded-md border border-line bg-panel px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-                      disabled={!canEditRoleDetails || isPending}
-                      maxLength={50}
-                      onChange={(event) => setName(event.target.value)}
-                      required
-                      value={name}
-                    />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span>Description</span>
-                    <input
-                      className="w-full rounded-md border border-line bg-panel px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-                      disabled={!canEditRoleDetails || isPending}
-                      maxLength={255}
-                      onChange={(event) => setDescription(event.target.value)}
-                      value={description}
-                    />
-                  </label>
-                </div>
+                  {selectedRole && (
+                    <>
+                      {selectedRole.description && (
+                        <p className="text-sm text-muted">
+                          {selectedRole.description}
+                        </p>
+                      )}
+                      <dl className="grid grid-cols-2 gap-4 border-t border-line pt-4 text-sm sm:grid-cols-3">
+                        <div>
+                          <dt className="text-muted">Role type</dt>
+                          <dd className="mt-1 font-semibold">
+                            {selectedRole.isSystem ? "System" : "Custom"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted">Assigned users</dt>
+                          <dd className="mt-1 font-semibold">
+                            {selectedRole.userCount}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted">Saved permissions</dt>
+                          <dd className="mt-1 font-semibold">
+                            {selectedRole.permissions.length}
+                          </dd>
+                        </div>
+                      </dl>
+                    </>
+                  )}
+                  {canEditRoleDetails && (
+                    <details open={isCreating || undefined}>
+                      {!isCreating && (
+                        <summary className="cursor-pointer rounded text-sm font-semibold text-teal focus-visible:outline-teal">
+                          Edit role details
+                        </summary>
+                      )}
+                      {isCreating && (
+                        <summary className="cursor-pointer font-medium">
+                          Role details
+                        </summary>
+                      )}
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <label className="space-y-1 text-sm">
+                          <span>Role name</span>
+                          <input
+                            className="w-full rounded-md border border-line bg-panel px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                            disabled={!canEditRoleDetails || isPending}
+                            maxLength={50}
+                            onChange={(event) => setName(event.target.value)}
+                            required
+                            value={name}
+                          />
+                        </label>
+                        <label className="space-y-1 text-sm">
+                          <span>Description</span>
+                          <input
+                            className="w-full rounded-md border border-line bg-panel px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                            disabled={!canEditRoleDetails || isPending}
+                            maxLength={255}
+                            onChange={(event) =>
+                              setDescription(event.target.value)
+                            }
+                            value={description}
+                          />
+                        </label>
+                      </div>
+                      {!isCreating && (
+                        <button
+                          type="button"
+                          onClick={saveRole}
+                          disabled={
+                            isPending ||
+                            name.trim().length < 2 ||
+                            (name.trim() === selectedRole?.name &&
+                              description.trim() ===
+                                (selectedRole.description ?? ""))
+                          }
+                          className="mt-3 rounded-md border border-line px-3 py-2 text-sm font-semibold text-ink hover:border-teal disabled:opacity-50"
+                        >
+                          Save role details
+                        </button>
+                      )}
+                    </details>
+                  )}
+                </section>
 
                 <div className="space-y-3">
-                  <div>
-                    <h3 className="font-medium">Permissions</h3>
-                    <p className="text-xs text-muted">
-                      Select the access this role should have.
-                    </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        Module permissions
+                      </h3>
+                      <p className="text-xs text-muted">
+                        {selectedPermissions.length} selected across all modules
+                        {permissionsChanged ? " · Unsaved changes" : ""}
+                      </p>
+                    </div>
+                    {canEditRolePermissions && (
+                      <button
+                        type="button"
+                        onClick={isCreating ? saveRole : savePermissions}
+                        disabled={
+                          isPending ||
+                          (isCreating
+                            ? name.trim().length < 2
+                            : !permissionsChanged)
+                        }
+                        className="rounded-md bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-navy focus-visible:outline-teal disabled:opacity-50"
+                      >
+                        {isCreating ? "Create role" : "Save permissions"}
+                      </button>
+                    )}
                   </div>
-                  {selectedPermissions.some(code => ["marks:enter", "marks:read"].includes(code)) && !selectedPermissions.includes("exams:read") && (
-                    <p className="text-sm text-muted">Staff can open assigned marks sheets with an exam ID. Grant exams:read if they should also choose an exam by name.</p>
-                  )}
-                  {groups.map((group) => (
-                    <fieldset
-                      className="rounded-md border border-line bg-panel p-4"
-                      key={group.module}
-                    >
-                      <legend className="px-1 text-sm font-semibold capitalize">
-                        {group.module.replaceAll("-", " ")}
-                      </legend>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {group.actions.map((action) => {
-                          const code = `${group.module}:${action.action}`;
-                          return (
-                            <label
-                              className="flex items-start gap-2 text-sm"
-                              key={action.id}
+                  {selectedPermissions.some((code) =>
+                    ["marks:enter", "marks:read"].includes(code),
+                  ) &&
+                    !selectedPermissions.includes("exams:read") && (
+                      <p className="text-sm text-muted">
+                        Staff can open assigned marks sheets with an exam ID.
+                        Grant exams:read if they should also choose an exam by
+                        name.
+                      </p>
+                    )}
+                  <div className="grid items-start gap-2 xl:grid-cols-2">
+                    {groups.map((group) => {
+                      const count = group.actions.filter((action) =>
+                        selectedPermissions.includes(
+                          `${group.module}:${action.action}`,
+                        ),
+                      ).length;
+                      return (
+                        <details
+                          key={group.module}
+                          className="group min-w-0 rounded-lg border border-line bg-panel"
+                        >
+                          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg px-4 py-2 hover:bg-mint/40 focus-visible:outline-teal [&::-webkit-details-marker]:hidden">
+                            <span className="flex-1 text-sm font-semibold capitalize">
+                              {group.module.replaceAll("-", " ")}
+                            </span>
+                            <span
+                              aria-label={
+                                count +
+                                " of " +
+                                group.actions.length +
+                                " permissions selected"
+                              }
+                              className="text-xs tabular-nums text-muted"
                             >
-                              <input
-                                checked={selectedPermissions.includes(code)}
-                                className="mt-0.5 accent-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-                                disabled={!canEditRolePermissions || isPending}
-                                onChange={() => togglePermission(code)}
-                                type="checkbox"
-                              />
-                              <span>
-                                <span className="block">{action.action}</span>
-                                {action.description && (
-                                  <span className="block text-xs text-muted">
-                                    {action.description}
+                              {count} / {group.actions.length}
+                            </span>
+                            <ChevronDown
+                              aria-hidden="true"
+                              className="size-4 text-muted group-open:rotate-180"
+                            />
+                          </summary>
+                          <div className="grid gap-1 border-t border-line p-2">
+                            {group.actions.map((action) => {
+                              const code = `${group.module}:${action.action}`;
+                              return (
+                                <label
+                                  className="flex min-h-10 items-start gap-3 rounded px-2 py-2 text-sm hover:bg-background"
+                                  key={action.id}
+                                >
+                                  <input
+                                    checked={selectedPermissions.includes(code)}
+                                    className="mt-0.5 accent-teal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                                    disabled={
+                                      !canEditRolePermissions || isPending
+                                    }
+                                    onChange={() => togglePermission(code)}
+                                    type="checkbox"
+                                  />
+                                  <span>
+                                    <span className="block first-letter:uppercase">
+                                      {action.action.replaceAll("-", " ")}
+                                    </span>
+                                    {action.description && (
+                                      <span className="block text-xs text-muted">
+                                        {action.description}
+                                      </span>
+                                    )}
                                   </span>
-                                )}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
-                  ))}
-                </div>
-
-                {canManage && (
-                  <div className="flex flex-wrap gap-3">
-                    {canEditRoleDetails && (
-                      <button
-                        className="rounded-md bg-teal px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:opacity-50"
-                        disabled={isPending || name.trim().length < 2}
-                        onClick={saveRole}
-                        type="button"
-                      >
-                        {isCreating ? "Create role" : "Save role details"}
-                      </button>
-                    )}
-                    {!isCreating && canEditRolePermissions && (
-                      <button
-                        className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium transition-colors hover:border-teal hover:bg-mint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:opacity-50"
-                        disabled={isPending}
-                        onClick={savePermissions}
-                        type="button"
-                      >
-                        Save permissions
-                      </button>
-                    )}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      );
+                    })}
                   </div>
-                )}
-              </>
+                </div>
+              </div>
             ) : (
               <div className="rounded-md border border-dashed border-line bg-panel p-8 text-center text-sm text-muted">
                 Select a role to view its permissions
@@ -377,11 +467,13 @@ export function RolesPermissionMatrix({ canManage }: { canManage: boolean }) {
       )}
 
       {mutationError && (
-        <p className="rounded-md border border-coral bg-panel p-3 text-sm text-coral" role="alert">
+        <p
+          className="rounded-md border border-coral bg-panel p-3 text-sm text-coral"
+          role="alert"
+        >
           {errorMessage(mutationError)}
         </p>
       )}
-      {selectedRole && <RecordDisclosure label="Role details" queryKey={[...rolesQueryKey,selectedRole.id]} load={()=>getRbacRole(selectedRole.id)}/>}
       {notice && (
         <p className="text-sm text-teal" role="status">
           {notice}
