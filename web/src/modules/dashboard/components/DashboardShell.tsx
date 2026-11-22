@@ -20,7 +20,6 @@ import {
 import {
   DASHBOARD_HREF,
   matchDashboardPath,
-  moduleHref,
   sectionHref,
   type IconName,
   type NavModule,
@@ -56,10 +55,12 @@ export function DashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const match = matchDashboardPath(modules, pathname);
+  const [expandedModule, setExpandedModule] = useState(match?.module.slug);
 
   const [previousPath, setPreviousPath] = useState(pathname);
   if (pathname !== previousPath) {
     setPreviousPath(pathname);
+    setExpandedModule(match?.module.slug);
     setDrawerOpen(false);
   }
   useEffect(() => {
@@ -74,6 +75,12 @@ export function DashboardShell({
       modules={modules}
       activeModule={match?.module}
       activeSection={match?.section?.slug}
+      expandedModule={expandedModule}
+      onToggle={(slug) => setExpandedModule(open => open === slug ? undefined : slug)}
+      onDashboardClick={() => {
+        setExpandedModule(undefined);
+        setDrawerOpen(false);
+      }}
       user={user}
     />
   );
@@ -130,18 +137,24 @@ function SidebarContent({
   modules,
   activeModule,
   activeSection,
+  expandedModule,
+  onToggle,
+  onDashboardClick,
   user,
 }: {
   modules: NavModule[];
   activeModule?: NavModule;
   activeSection?: string;
+  expandedModule?: string;
+  onToggle: (slug: string) => void;
+  onDashboardClick: () => void;
   user: ShellUser;
 }) {
   return (
     <>
       {/* Header section in sidebar */}
       <div className="flex h-16 shrink-0 items-center border-b border-line px-2">
-        <Link href={DASHBOARD_HREF} className={row + " font-semibold text-ink"}>
+        <Link href={DASHBOARD_HREF} onNavigate={onDashboardClick} className={row + " font-semibold text-ink"}>
           Dashboard
         </Link>
       </div>
@@ -149,19 +162,21 @@ function SidebarContent({
         {modules.map((module) => {
           const Icon = ICONS[module.icon];
           const current = module.slug === activeModule?.slug;
+          const expanded = module.slug === expandedModule;
           return (
             <div key={module.slug}>
-              <Link href={moduleHref(module)}
-                aria-current={current && !activeSection ? "page" : undefined}
-                className={row + (current ? " bg-mint font-semibold text-ink" : " text-muted hover:bg-line/50 hover:text-ink")}>
+              <button type="button"
+                aria-expanded={expanded}
+                onClick={() => onToggle(module.slug)}
+                className={row + " text-left" + (current ? " bg-mint font-semibold text-ink" : " text-muted hover:bg-line/50 hover:text-ink")}>
                 <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 truncate">{module.label}</span>
-                <ChevronRight aria-hidden="true" className={current ? "size-4 rotate-90" : "size-4"} />
-              </Link>
-              {current && (
+                <ChevronRight aria-hidden="true" className={expanded ? "size-4 rotate-90" : "size-4"} />
+              </button>
+              {expanded && (
                 <ul aria-label={module.label + " sections"} className="ml-7 border-l border-line py-1">
                   {module.sections.map((section) => {
-                    const selected = activeSection === section.slug;
+                    const selected = current && activeSection === section.slug;
                     return (
                       <li key={section.slug}>
                         <Link href={sectionHref(module, section)} aria-current={selected ? "page" : undefined}
