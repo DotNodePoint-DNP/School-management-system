@@ -12,16 +12,19 @@ import { StudentsService } from './students.service.js';
 import { SubjectChoicesController } from './subject-choices.controller.js';
 import { SubjectChoicesService } from './subject-choices.service.js';
 
+import { StudentDocumentsService } from './student-documents.service.js';
+
 @Module({
   imports: [GuardiansModule, StaffModule, AcademicYearsModule, ClassesModule],
   controllers: [StudentsController, EnrollmentsController, SubjectChoicesController],
   providers: [
     StudentsService,
+    StudentDocumentsService,
     StudentAccessService,
     EnrollmentsService,
     StudentLifecycleService,
     SubjectChoicesService,
   ],
-  exports: [StudentsService, StudentAccessService, EnrollmentsService, SubjectChoicesService],
+  exports: [StudentDocumentsService, StudentsService, StudentAccessService, EnrollmentsService, SubjectChoicesService],
 })
 export class StudentsModule {}

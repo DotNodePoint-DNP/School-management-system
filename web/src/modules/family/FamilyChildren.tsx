@@ -328,6 +328,7 @@ function ChildView({ child }: { child: Child }) {
           {profile.isSuccess && (
             <>
               <StudentProfile
+                photoPath={`/portal/children/${id}/photo`}
                 record={profile.data}
                 history={profile.data.enrollments}
                 current={profile.data.enrollments.find(

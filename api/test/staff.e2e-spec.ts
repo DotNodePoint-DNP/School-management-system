@@ -329,6 +329,9 @@ describe('Staff and teaching assignments (e2e)', () => {
       designation: 'Senior Teacher',
     }).expect(200);
     expect(res.body.data.designation).toBe('Senior Teacher');
+    const cleared = await patch(`/staff/${teacherId}`, { designation: null }).expect(200);
+    expect(cleared.body.data.designation).toBeNull();
+    expect(cleared.body.data.staffNo).toBe(res.body.data.staffNo);
   });
 
   it('creates a login for staff and the teacher can use it', async () => {

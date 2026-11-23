@@ -229,12 +229,12 @@ export class StaffService {
     dto: UpdateStaffDto,
     actor: AuthUser,
   ): Promise<StaffResponse> {
-    const dob = resolveDate('dateOfBirth', dto.dateOfBirth, dto.dateOfBirthBs);
+    const dob = resolveDate('dateOfBirth', dto.dateOfBirth ?? undefined, dto.dateOfBirthBs);
     if (dob !== undefined) this.assertPast(dob);
     const joinDate = resolveDate('joinDate', dto.joinDate, dto.joinDateBs);
     const phone =
-      dto.phone !== undefined ? normalizePhone(dto.phone) : undefined;
-    if (dto.phone !== undefined && !phone)
+      dto.phone == null ? dto.phone : normalizePhone(dto.phone);
+    if (dto.phone != null && !phone)
       throw new BadRequestException('Invalid phone number');
 
     const { row, changed } = await this.prisma.$transaction(async (tx) => {
@@ -253,9 +253,10 @@ export class StaffService {
       if (dto.fullNameNp !== undefined) data.fullNameNp = dto.fullNameNp;
       if (dto.gender !== undefined) data.gender = dto.gender;
       if (dob !== undefined) data.dateOfBirth = isoToDate(dob);
+      else if (dto.dateOfBirth === null) data.dateOfBirth = null;
       if (joinDate !== undefined) data.joinDate = isoToDate(joinDate);
-      if (phone) data.phone = phone;
-      if (dto.email !== undefined) data.email = dto.email.toLowerCase();
+      if (dto.phone !== undefined) data.phone = phone ?? null;
+      if (dto.email !== undefined) data.email = dto.email?.toLowerCase() ?? null;
       if (dto.address !== undefined) data.address = dto.address;
       if (dto.kind !== undefined) data.kind = dto.kind;
       if (dto.designation !== undefined) data.designation = dto.designation;

@@ -383,18 +383,7 @@ export default function StaffWorkspace({
         <StaffFormDialog
           isSaving={createMutation.isPending}
           onClose={closeDialog}
-          onSubmit={(input) => {
-            const joinDate = input.joinDate;
-            if (!input.firstName || !input.lastName || !input.gender || !input.kind || !joinDate) return;
-            createMutation.mutate({
-              ...input,
-              firstName: input.firstName,
-              lastName: input.lastName,
-              gender: input.gender,
-              kind: input.kind,
-              joinDate,
-            });
-          }}
+          onSubmit={input => createMutation.mutate(input)}
           staff={null}
         />
       )}

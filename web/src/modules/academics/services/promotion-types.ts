@@ -51,6 +51,7 @@ export interface PromotionSummary {
 
 export interface PromotionClassDecisions {
   runId: string;
+  destinations: { id: string; name: string; sections: { id: string; name: string }[] }[];
   status: PromotionSummary["run"]["status"];
   class: {
     id: string;

@@ -70,6 +70,7 @@ export function AdmissionSelect({
         <select
           className={`${formFieldClass} appearance-none pr-9`}
           disabled={disabled}
+          required={required}
           onChange={(event) => onChange(event.target.value)}
           value={value}
         >

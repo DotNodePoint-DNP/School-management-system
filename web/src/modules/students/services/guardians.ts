@@ -21,6 +21,7 @@ export interface GuardianDetails extends GuardianSummary {
     name: string;
     relationship: string;
     isPrimary: boolean;
+    portalAccess: boolean;
   }[];
 }
 

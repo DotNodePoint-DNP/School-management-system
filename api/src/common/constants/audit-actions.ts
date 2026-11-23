@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = [
   // students
   'student.created',
   'student.updated',
+  'student.document_uploaded',
   'student.guardians_changed',
   'student.deleted',
   'guardian.updated',

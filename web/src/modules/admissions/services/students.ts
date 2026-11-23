@@ -13,7 +13,9 @@ export type GuardianRelationship =
   | "OTHER";
 
 export interface GuardianInput {
-  firstName: string;
+  guardianId?: string;
+  fullNameNp?: string;
+  firstName?: string;
   middleName?: string;
   lastName?: string;
   phone?: string;
@@ -24,6 +26,7 @@ export interface GuardianInput {
   isPrimary?: boolean;
   isEmergencyContact?: boolean;
   createLogin: boolean;
+  portalAccess?: boolean;
   phoneConfirmed?: boolean;
 }
 
@@ -39,9 +42,12 @@ export interface CreateStudentInput {
   lastName: string;
   fullNameNp?: string;
   gender: StudentGender;
-  dateOfBirth: string;
+  dateOfBirth?: string;
+  dateOfBirthBs?: string;
+  admissionDateBs?: string;
   admissionDate?: string;
   address?: string;
+  admissionNo?: string;
   confirmNotDuplicate?: boolean;
   guardians: GuardianInput[];
   placement?: StudentPlacementInput;
@@ -82,6 +88,7 @@ export interface StudentDetail extends StudentListItem {
     relationship: GuardianRelationship;
     isPrimary: boolean;
     isEmergencyContact: boolean;
+    portalAccess: boolean;
     phone: string | null;
     email: string | null;
     hasLogin: boolean;
@@ -136,6 +143,7 @@ export interface StudentGuardianLinkInput {
   relationship: GuardianRelationship;
   isPrimary: boolean;
   isEmergencyContact?: boolean;
+  portalAccess?: boolean;
 }
 
 export interface ChangeStudentStatusInput {

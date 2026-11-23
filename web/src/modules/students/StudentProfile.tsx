@@ -5,7 +5,9 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createApiClient } from "@/lib/api/client";
 
 export interface Placement {
   className: string;
@@ -37,6 +39,7 @@ export interface ProfileRecord {
     phone?: string | null;
     email?: string | null;
     hasLogin?: boolean;
+    portalAccess?: boolean;
   }[];
 }
 
@@ -68,24 +71,19 @@ function dates(ad: string, bs?: string | null) {
   );
 }
 
-export function StudentProfile({
-  record,
-  current,
-  history,
-}: {
-  record: ProfileRecord;
-  current?: Placement | null;
-  history?: Placement[];
-}) {
-  return (
-    <div className="min-w-0 space-y-4 text-ink">
-      <header className="relative isolate overflow-hidden rounded-2xl bg-navy p-5 text-white sm:p-8">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-12 -top-32 -z-10 size-80 rotate-45 rounded-[4rem] border-[24px] border-white/5"
-        />
-        <div className="flex flex-wrap items-center gap-5">
-          <div
+function ProfilePhoto({ path }: { path?: string }) {
+  const photo = useQuery({ queryKey: ["student-photo", path], queryFn: () => createApiClient().getBlob(path!), enabled: Boolean(path) });
+  const image = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (!photo.data?.size || !image.current) return;
+    const url = URL.createObjectURL(photo.data);
+    image.current.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [photo.data]);
+  // The authenticated API returns a private blob URL that the Next image optimizer cannot fetch.
+  // eslint-disable-next-line @next/next/no-img-element
+  if (photo.data?.size) return <img ref={image} alt="Student profile photo" className="size-20 rounded-2xl object-cover sm:size-28" />;
+  return (<div
             role="img"
             aria-label="Student photo placeholder"
             className="grid size-20 shrink-0 place-content-center justify-items-center gap-1 rounded-2xl border border-white/30 bg-white/10 sm:size-28"
@@ -98,7 +96,29 @@ export function StudentProfile({
             <span className="text-[10px] tracking-wide text-white/80">
               No photo
             </span>
-          </div>
+          </div>);
+}
+
+export function StudentProfile({
+  record,
+  current,
+  history,
+  photoPath,
+}: {
+  record: ProfileRecord;
+  current?: Placement | null;
+  history?: Placement[];
+  photoPath?: string;
+}) {
+  return (
+    <div className="min-w-0 space-y-4 text-ink">
+      <header className="relative isolate overflow-hidden rounded-2xl bg-navy p-5 text-white sm:p-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-12 -top-32 -z-10 size-80 rotate-45 rounded-[4rem] border-[24px] border-white/5"
+        />
+        <div className="flex flex-wrap items-center gap-5">
+          <ProfilePhoto path={photoPath} />
           <div className="min-w-0 flex-1 basis-48">
             <p className="text-xs font-semibold uppercase tracking-widest text-white/75">
               Student profile
@@ -183,6 +203,7 @@ export function StudentProfile({
                 </p>
                 {g.phone && <p className="break-all text-sm">{g.phone}</p>}
                 {g.email && <p className="break-all text-sm">{g.email}</p>}
+                {g.portalAccess !== undefined && <p className="text-xs text-muted">Access to this child: {g.portalAccess ? "on" : "off"}</p>}
                 {g.hasLogin !== undefined && (
                   <p className="text-xs text-muted">
                     Portal account {g.hasLogin ? "linked" : "not linked"}

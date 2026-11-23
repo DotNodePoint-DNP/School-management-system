@@ -47,7 +47,8 @@ export interface StaffInput {
   staffNo?: string;
 }
 
-export type StaffUpdateInput = Partial<StaffInput>;
+type ClearableStaffField = "dateOfBirth" | "phone" | "email" | "designation" | "middleName" | "fullNameNp" | "address";
+export type StaffUpdateInput = Partial<Omit<StaffInput, ClearableStaffField>> & Partial<Record<ClearableStaffField, string | null>>;
 
 export interface StaffLeaveInput {
   leftOn?: string;

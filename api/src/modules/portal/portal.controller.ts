@@ -1,5 +1,5 @@
 import {
-  Controller,
+  Controller, Res,
   Get,
   Param,
   ParseUUIDPipe,
@@ -18,12 +18,18 @@ import {
 import { PortalResultsService } from './portal-results.service.js';
 import { PortalService } from './portal.service.js';
 
+import type { Response } from 'express';
+import { StudentDocumentsService } from '../students/student-documents.service.js';
+import { PortalAccessService } from './portal-access.service.js';
+
 /** Everything here is read-only and answers only for the signed-in parent's own children. */
 @Controller('portal')
 @UseInterceptors(NoStoreInterceptor)
 @Throttle({ default: { limit: 60, ttl: 60_000 } })
 export class PortalController {
   constructor(
+    private readonly access: PortalAccessService,
+    private readonly documents: StudentDocumentsService,
     private readonly portal: PortalService,
     private readonly results: PortalResultsService,
   ) {}
@@ -47,6 +53,15 @@ export class PortalController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.portal.profile(actor, studentId);
+  }
+
+  @Get('children/:studentId/photo')
+  @RequirePermissions('portal:access')
+  async photo(@Param('studentId', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser, @Res() res: Response) {
+    await this.access.requireChild(actor, id);
+    const file = await this.documents.photo(id);
+    if (!file) { res.status(204).end(); return; }
+    res.type(file.mimeType).send(file.body);
   }
 
   @Get('children/:studentId/attendance')

@@ -414,6 +414,7 @@ export const workflows: Record<string, Workflow[]> = {
     {"label":"Issue on-demand invoice","method":"post","path":"/enrollments/:id/invoices/ad-hoc","permissions":["fees:invoice-generate"],"form":"CreateAdHocInvoiceDto"},
     {"label":"Invoice register","method":"get","path":"/invoices","permissions":["fees:read"],"form":"ListInvoicesQueryDto","paged":true},
     {"label":"Enrollment invoices","method":"get","path":"/enrollments/:id/invoices","permissions":["fees:read"]},
+    {"label":"Invoice details","method":"get","path":"/invoices/:id","permissions":["fees:read"]},
     {"label":"Void invoice","method":"post","path":"/invoices/:id/void","permissions":["fees:invoice-void"],"form":"VoidInvoiceDto"},
     {"label":"Preview reissued invoice","method":"post","path":"/invoices/:id/reissue/preview","permissions":["fees:invoice-generate"],"form":"ReissueInvoiceDto"},
     {"label":"Reissue invoice","method":"post","path":"/invoices/:id/reissue","permissions":["fees:invoice-generate"],"form":"ReissueInvoiceDto"},

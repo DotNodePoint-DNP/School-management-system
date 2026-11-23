@@ -5,6 +5,7 @@ import {
   IsInt,
   IsNotEmpty,
   IsString,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -52,16 +53,25 @@ class EnvVars {
   @Max(90)
   REFRESH_TOKEN_TTL_DAYS: number = 7;
 
-  @IsIn(['console', 'disabled'])
+  @IsIn(['console', 'disabled', 'gateway'])
   SMS_PROVIDER: string = 'disabled';
 
-  @IsIn(['console', 'disabled'])
+  @IsIn(['console', 'disabled', 'gateway'])
   EMAIL_PROVIDER: string = 'disabled';
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(60)
   SCHOOL_NAME: string = 'School';
+
+  @ValidateIf((o: EnvVars) => o.SMS_PROVIDER === 'gateway' || o.EMAIL_PROVIDER === 'gateway')
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  MESSAGING_GATEWAY_URL?: string;
+
+  @ValidateIf((o: EnvVars) => o.SMS_PROVIDER === 'gateway' || o.EMAIL_PROVIDER === 'gateway')
+  @IsString()
+  @IsNotEmpty()
+  MESSAGING_GATEWAY_TOKEN?: string;
 
   @IsIn(['r2', 'memory', 'disabled'])
   STORAGE_DRIVER: string = 'disabled';

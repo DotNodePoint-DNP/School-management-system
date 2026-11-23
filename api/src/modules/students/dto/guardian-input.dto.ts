@@ -33,6 +33,7 @@ export class GuardianInputDto {
   @IsIn(RELATIONSHIPS) relationship!: Relationship;
   @IsOptional() @IsBoolean() isPrimary?: boolean;
   @IsOptional() @IsBoolean() isEmergencyContact?: boolean;
+  @IsOptional() @IsBoolean() portalAccess?: boolean;
   /** Default true: a login is created and credentials are sent. */
   @IsOptional() @IsBoolean() createLogin?: boolean;
   /** The clerk confirmed the phone number with the guardian. Required when createLogin applies to a new phone. */

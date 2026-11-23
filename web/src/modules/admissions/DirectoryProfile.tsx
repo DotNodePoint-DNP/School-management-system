@@ -3,12 +3,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { StudentDocuments } from "@/modules/students/StudentDocuments";
 import { StudentProfile } from "@/modules/students/StudentProfile";
 import { RecordDisclosure } from "@/components/RecordDisclosure";
 import { getStudentAttendanceSummary } from "@/modules/attendance/services/reports";
 import { createApiClient } from "@/lib/api/client";
 import { toast } from "sonner";
-import { listGuardians } from "@/modules/students/services/guardians";
+import { GuardianPicker } from "@/modules/students/GuardianPicker";
 import {
   changeStudentStatus,
   deleteStudent,
@@ -49,22 +50,15 @@ export function DirectoryProfile({
   >("WITHDRAWN");
   const [statusReason, setStatusReason] = useState("");
   const [effectiveOn, setEffectiveOn] = useState("");
-  const [guardianToAdd, setGuardianToAdd] = useState("");
+  const [guardianNames, setGuardianNames] = useState<Record<string, string>>({});
   const detailQuery = useQuery({
     queryKey: ["admissions", "student-detail", selectedId],
     queryFn: () => getStudent(selectedId),
     retry: false,
   });
-  const guardiansQuery = useQuery({
-    queryKey: ["guardians", "student-link-options"],
-    queryFn: () => listGuardians({ page: 1, pageSize: 100 }),
-    enabled: Boolean(
-      selectedId && can("students:update") && can("guardians:read"),
-    ),
-    retry: false,
-  });
   const refresh = async () =>
     Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["guardians"] }),
       queryClient.invalidateQueries({ queryKey: ["admissions", "students"] }),
       queryClient.invalidateQueries({
         queryKey: ["admissions", "student-detail", selectedId],
@@ -156,7 +150,7 @@ export function DirectoryProfile({
     student && studentDraft?.studentId === student.id
       ? studentDraft.input
       : null;
-  const guardianLinks =
+  const guardianLinks: StudentGuardianLinkInput[] =
     student && guardianDraft?.studentId === student.id
       ? guardianDraft.links
       : (student?.guardians.map((guardian) => ({
@@ -185,6 +179,7 @@ export function DirectoryProfile({
         student && (
           <>
             <StudentProfile
+              photoPath={`/students/${student.id}/photo`}
               current={student.enrollment}
               record={{
                 ...student,
@@ -194,6 +189,7 @@ export function DirectoryProfile({
                 nameNp: student.fullNameNp,
               }}
             />
+            {can("students:read-all") && <StudentDocuments studentId={student.id} canUpload={can("students:update")} />}
             <div className="grid gap-3 sm:grid-cols-2">
               {permissions.some((p) =>
                 [
@@ -245,7 +241,8 @@ export function DirectoryProfile({
                       <h3 className="font-bold text-ink">
                         Personal information
                       </h3>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      {can("students:read-all") && <StudentDocuments studentId={student.id} canUpload={can("students:update")} />}
+            <div className="grid gap-3 sm:grid-cols-2">
                         {(
                           [
                             "firstName",
@@ -299,19 +296,7 @@ export function DirectoryProfile({
                           const guardian = student.guardians.find(
                             (item) => item.guardianId === link.guardianId,
                           );
-                          const candidate = guardiansQuery.data?.items.find(
-                            (item) => item.id === link.guardianId,
-                          );
-                          const label =
-                            guardian?.name ??
-                            [
-                              candidate?.firstName,
-                              candidate?.middleName,
-                              candidate?.lastName,
-                            ]
-                              .filter(Boolean)
-                              .join(" ") ??
-                            link.guardianId;
+                          const label = guardian?.name ?? guardianNames[link.guardianId] ?? link.guardianId;
                           return (
                             <div
                               key={link.guardianId}
@@ -396,6 +381,12 @@ export function DirectoryProfile({
                                 />
                                 Emergency
                               </label>
+                              <label className="flex items-center gap-1 text-xs text-muted">
+                                <input type="checkbox" disabled={!can("guardians:manage")}
+                                  checked={link.portalAccess ?? guardian?.portalAccess ?? true}
+                                  onChange={event => setGuardianDraft({ studentId: student.id, links: guardianLinks.map((item, i) => i === index ? { ...item, portalAccess: event.target.checked } : item) })} />
+                                Can view this child
+                              </label>
                               <button
                                 disabled={guardianLinks.length <= 1}
                                 onClick={() => {
@@ -421,53 +412,10 @@ export function DirectoryProfile({
                         })}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <select
-                          aria-label="Add existing guardian"
-                          value={guardianToAdd}
-                          onChange={(event) =>
-                            setGuardianToAdd(event.target.value)
-                          }
-                          className={`${formFieldClass} max-w-sm`}
-                        >
-                          <option value="">Add an existing guardian…</option>
-                          {guardiansQuery.data?.items
-                            .filter(
-                              (guardian) =>
-                                !guardianLinks.some(
-                                  (link) => link.guardianId === guardian.id,
-                                ),
-                            )
-                            .map((guardian) => (
-                              <option key={guardian.id} value={guardian.id}>
-                                {[
-                                  guardian.firstName,
-                                  guardian.middleName,
-                                  guardian.lastName,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              </option>
-                            ))}
-                        </select>
-                        <button
-                          disabled={!guardianToAdd || guardianLinks.length >= 6}
-                          onClick={() => {
-                            const newLink: StudentGuardianLinkInput = {
-                              guardianId: guardianToAdd,
-                              relationship: "LEGAL_GUARDIAN",
-                              isPrimary: guardianLinks.length === 0,
-                              isEmergencyContact: false,
-                            };
-                            setGuardianDraft({
-                              studentId: student.id,
-                              links: [...guardianLinks, newLink],
-                            });
-                            setGuardianToAdd("");
-                          }}
-                          className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-ink disabled:opacity-40"
-                        >
-                          Add guardian
-                        </button>
+                        {guardianLinks.length < 6 && <GuardianPicker exclude={guardianLinks.map(g => g.guardianId)} onSelect={g => {
+                          setGuardianNames(names => ({ ...names, [g.id]: [g.firstName, g.middleName, g.lastName].filter(Boolean).join(" ") }));
+                          setGuardianDraft({ studentId: student.id, links: [...guardianLinks, { guardianId: g.id, relationship: "LEGAL_GUARDIAN", isPrimary: !guardianLinks.length, isEmergencyContact: false }] });
+                        }} />}
                         <button
                           disabled={
                             !guardianDraft ||
@@ -484,13 +432,6 @@ export function DirectoryProfile({
                             : "Save guardian links"}
                         </button>
                       </div>
-                      {guardiansQuery.isError && (
-                        <p role="alert" className="text-sm text-coral">
-                          {guardiansQuery.error instanceof Error
-                            ? guardiansQuery.error.message
-                            : "Guardian options could not be loaded."}
-                        </p>
-                      )}
                     </section>
                   )}
                   {can("students:change-status") && (

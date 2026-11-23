@@ -135,7 +135,7 @@ export default function NotificationTemplateMaster() {
     });
 
     setIsCreating(false);
-    toast.success(`Template "${selectedTemplate.title}" saved successfully!`);
+    toast.success(`Template "${selectedTemplate.title}" updated in this preview.`);
   };
 
   const handleAddNew = () => {
@@ -155,7 +155,7 @@ export default function NotificationTemplateMaster() {
 
   const handleDeleteTemplate = (id: string, title: string) => {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
-    toast.info(`Deleted template: ${title}`);
+    toast.info(`Removed from preview: ${title}`);
     const remaining = templates.filter((t) => t.id !== id);
     if (remaining.length > 0) {
       setSelectedTemplate(remaining[0]);
@@ -173,7 +173,7 @@ export default function NotificationTemplateMaster() {
             Notification Templates & Engine
           </h1>
           <p className="mt-1 text-xs font-medium text-muted">
-            Configure automated SMS and Email notification triggers for fee reminders, attendance, and exam results.
+            Preview templates for this session. Changes reset when you reload.
           </p>
         </div>
 
@@ -388,7 +388,7 @@ export default function NotificationTemplateMaster() {
                 onClick={handleSaveTemplate}
                 className="w-full rounded-lg bg-teal py-2.5 text-xs font-bold uppercase tracking-wider text-panel shadow-sm hover:bg-navy transition-all"
               >
-                Save Template
+                Update preview
               </button>
             </div>
           </div>

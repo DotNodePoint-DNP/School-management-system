@@ -6,6 +6,9 @@ export default async function AdmissionFormPage() {
 
   return (
     <AdmissionIntakeWorkspace
+      canManageGuardians={user.permissions.includes("guardians:manage")}
+      canSetAdmissionNumber={user.permissions.includes("students:set-admission-no")}
+      canReadGuardians={user.permissions.includes("guardians:read")}
       canManageEnrollments={user.permissions.includes("enrollments:manage")}
     />
   );

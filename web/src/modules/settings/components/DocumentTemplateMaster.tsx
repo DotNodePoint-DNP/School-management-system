@@ -155,7 +155,7 @@ export default function DocumentTemplateMaster() {
     setTemplates((prev) =>
       prev.map((t) => (t.id === selectedTemplate.id ? selectedTemplate : t))
     );
-    toast.success(`Template "${selectedTemplate.title}" saved successfully!`);
+    toast.success(`Template "${selectedTemplate.title}" updated in this preview.`);
   };
 
   return (
@@ -167,7 +167,7 @@ export default function DocumentTemplateMaster() {
             Print & Document Template Master
           </h1>
           <p className="mt-1 text-xs font-medium text-muted">
-            Configure reusable Letterheads, Headers, Footers, and Digital Signature blocks for Invoices, Certificates, and Letters.
+            Preview templates for this session. Changes reset when you reload.
           </p>
         </div>
 
@@ -182,7 +182,7 @@ export default function DocumentTemplateMaster() {
             onClick={handleSave}
             className="rounded-lg bg-teal px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-panel shadow-sm hover:bg-navy transition-all"
           >
-            Save Template
+            Update preview
           </button>
         </div>
       </div>

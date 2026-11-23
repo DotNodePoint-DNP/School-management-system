@@ -55,6 +55,7 @@ describe('Students, guardians and parent logins (e2e)', () => {
   let hasRealActiveYear = false;
   let phoneCounter = 0;
   let firstStudentId = '';
+  let firstGuardianPhone = "";
   let firstGuardianId = '';
 
   const http = () => request(app.getHttpServer());
@@ -203,6 +204,7 @@ describe('Students, guardians and parent logins (e2e)', () => {
       ['students', 'delete'],
       ['guardians', 'read'],
       ['guardians', 'manage'],
+      ['portal', 'access'],
       ['guardians', 'create-login'],
     ]);
     clerkToken = await makeUser('clerk', [
@@ -239,6 +241,7 @@ describe('Students, guardians and parent logins (e2e)', () => {
     const { student, logins } = res.body.data;
     firstStudentId = student.id as string;
     firstGuardianId = student.guardians[0].guardianId as string;
+    firstGuardianPhone = phoneRaw(phoneCounter);
 
     expect(student.admissionNo).toMatch(new RegExp(`^ADM-${BS_YEAR}-\\d{3,}$`));
     expect(student).toMatchObject({
@@ -286,6 +289,29 @@ describe('Students, guardians and parent logins (e2e)', () => {
     ).expect(201);
     expect(res.body.data.logins).toEqual([]);
     expect(fake.sent).toHaveLength(0);
+  });
+
+  it('keeps a restricted child link disabled from the moment of admission', async () => {
+    const body = newStudent('Restricted', {}, { portalAccess: false });
+    await post('/students', body, clerkToken).expect(403);
+    const admission = await post('/students', body).expect(201);
+    expect(admission.body.data.student.guardians[0].portalAccess).toBe(false);
+    expect(admission.body.data.logins).toEqual([]);
+  });
+
+  it('stores an office document, preserves its contents, and restricts access', async () => {
+    const student = await post('/students', newStudent('File', {}, { createLogin: false })).expect(201);
+    const path = `/students/${student.body.data.student.id}/documents`;
+    const content = Buffer.from('%PDF-1.4\n%%EOF');
+    const stored = await http().post(V1 + path + '/BIRTH_CERTIFICATE').set(auth(managerToken)).attach('file', content, 'certificate.pdf').expect(201);
+    const result = await get(path).expect(200);
+    expect(result.body.data[0]).toMatchObject({ id: stored.body.data.id, originalName: 'certificate.pdf', sizeBytes: content.length });
+    const download = await get(path + '/' + stored.body.data.id).expect(200);
+    expect(download.body).toEqual(content);
+    await get(path, plainToken).expect(403);
+    await get(path + '/' + stored.body.data.id, plainToken).expect(403);
+    await http().post(V1 + path + '/PROFILE_PHOTO').set(auth(managerToken)).attach('file', content, 'fake.png').expect(400);
+    await del('/students/' + student.body.data.student.id).expect(200);
   });
 
   it('validates admission input', async () => {
@@ -451,7 +477,7 @@ describe('Students, guardians and parent logins (e2e)', () => {
     ]);
     expect(fake.sent).toHaveLength(0);
 
-    const shared = phoneRaw(1); // same number as the first guardian, but a different person
+    const shared = firstGuardianPhone; // same number as the first guardian, but a different person
     const other = await post(
       '/students',
       newStudent(
@@ -468,7 +494,7 @@ describe('Students, guardians and parent logins (e2e)', () => {
 
   it('finds guardians by phone and shows their children', async () => {
     const found = await get('/guardians')
-      .query({ phone: phoneRaw(1) })
+      .query({ phone: firstGuardianPhone })
       .expect(200);
     expect(found.body.data.map((g: { id: string }) => g.id)).toContain(
       firstGuardianId,

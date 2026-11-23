@@ -33,25 +33,7 @@ export interface StoredImage {
   height: number;
 }
 
-@Injectable()
-export class SchoolImagesService {
-  private readonly logger = new Logger(SchoolImagesService.name);
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
-  ) {}
-
-  /**
-   * Validates an upload by its real bytes, re-encodes it to a clean PNG (this strips hidden metadata such as
-   * camera location and applies phone-photo rotation), stores it, and records it. SVG is refused: it can carry scripts.
-   */
-  async storeImage(
-    kind: Kind,
-    input: Buffer | undefined,
-    uploadedById: string,
-  ): Promise<StoredImage> {
-    const rule = IMAGE_RULES[kind];
+export async function normalizeImage(input: Buffer | undefined, rule: { maxBytes: number; maxWidth: number; maxHeight: number; minSide: number }) {
     if (!input || input.length === 0)
       throw new BadRequestException('Attach an image in the "file" field');
     if (input.length > rule.maxBytes)
@@ -61,7 +43,6 @@ export class SchoolImagesService {
     if (!isPng(input) && !isJpeg(input))
       throw new BadRequestException('Only PNG or JPEG images are accepted');
 
-    let normalised: { data: Buffer; width: number; height: number };
     try {
       const options = {
         limitInputPixels: MAX_INPUT_PIXELS,
@@ -92,7 +73,7 @@ export class SchoolImagesService {
         })
         .png({ compressionLevel: 9 })
         .toBuffer({ resolveWithObject: true });
-      normalised = {
+      return {
         data: out.data,
         width: out.info.width,
         height: out.info.height,
@@ -102,6 +83,28 @@ export class SchoolImagesService {
       throw new BadRequestException('That file could not be read as an image');
     }
 
+}
+
+@Injectable()
+export class SchoolImagesService {
+  private readonly logger = new Logger(SchoolImagesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
+
+  /**
+   * Validates an upload by its real bytes, re-encodes it to a clean PNG (this strips hidden metadata such as
+   * camera location and applies phone-photo rotation), stores it, and records it. SVG is refused: it can carry scripts.
+   */
+  async storeImage(
+    kind: Kind,
+    input: Buffer | undefined,
+    uploadedById: string,
+  ): Promise<StoredImage> {
+    const rule = IMAGE_RULES[kind];
+    const normalised = await normalizeImage(input, rule);
     const key = `school/${kind.toLowerCase()}/${randomUUID()}.png`;
     const sha256 = createHash('sha256').update(normalised.data).digest('hex');
     await this.storage.put(key, normalised.data, 'image/png'); // 503 if storage is down; nothing is recorded

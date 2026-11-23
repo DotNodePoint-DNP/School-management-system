@@ -101,11 +101,9 @@ export function StaffFormDialog({
   onClose,
   onSubmit,
 }: {
-  staff: StaffDetails | null;
   isSaving: boolean;
   onClose: () => void;
-  onSubmit: (input: StaffInput | StaffUpdateInput) => void;
-}) {
+} & ({ staff: null; onSubmit: (input: StaffInput) => void } | { staff: StaffDetails; onSubmit: (input: StaffUpdateInput) => void })) {
   const isEdit = Boolean(staff);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -115,7 +113,7 @@ export function StaffFormDialog({
     const lastName = optionalValue(form, "lastName");
     const gender = optionalValue(form, "gender") as StaffInput["gender"] | undefined;
     const kind = optionalValue(form, "kind") as StaffInput["kind"] | undefined;
-    const input: StaffUpdateInput = {
+    const input: Partial<StaffInput> = {
       ...(firstName ? { firstName } : {}),
       ...(optionalValue(form, "middleName") ? { middleName: optionalValue(form, "middleName") } : {}),
       ...(lastName ? { lastName } : {}),
@@ -130,17 +128,21 @@ export function StaffFormDialog({
       ...(optionalValue(form, "designation") ? { designation: optionalValue(form, "designation") } : {}),
       ...(!isEdit && optionalValue(form, "staffNo") ? { staffNo: optionalValue(form, "staffNo") } : {}),
     };
-    if (!isEdit) {
+    if (staff === null) {
       if (!firstName || !lastName || !gender || !kind || !input.joinDate) return;
       onSubmit({ ...input, firstName, lastName, gender, kind, joinDate: input.joinDate });
       return;
     }
-    onSubmit(input);
+    const updated: StaffUpdateInput = { ...input };
+    for (const field of ["dateOfBirth", "phone", "email", "designation", "middleName", "fullNameNp", "address"] as const) {
+      if (staff?.[field] && !optionalValue(form, field)) updated[field] = null;
+    }
+    onSubmit(updated);
   }
 
   return (
     <DialogFrame
-      description={isEdit ? "Update this staff member’s profile. Empty optional fields are left unchanged." : "Create a staff record. Staff numbers are generated automatically unless you provide one."}
+      description={isEdit ? "Update this staff member’s profile." : "Create a staff record. Staff numbers are generated automatically unless you provide one."}
       onClose={onClose}
       title={isEdit ? "Edit staff profile" : "Add a staff member"}
     >
