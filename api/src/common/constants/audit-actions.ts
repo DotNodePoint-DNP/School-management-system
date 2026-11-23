@@ -164,5 +164,6 @@ export const AUDIT_ACTIONS = [
   'fee_reminders.sent',
   'exam.release_set',
   'guardian.portal_access_changed',
+  'website.saved',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

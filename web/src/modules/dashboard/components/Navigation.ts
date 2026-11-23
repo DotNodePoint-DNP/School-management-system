@@ -258,6 +258,12 @@ const NAV_MODULES: NavModule[] = [
         permissions: ["school:manage"],
       },
       {
+        slug: "website",
+        label: "Website CMS",
+        href: "/dashboard/website",
+        permissions: ["school:manage"],
+      },
+      {
         slug: "signatories",
         label: "Signatories & letterhead",
         permissions: ["school:manage-signatories"],

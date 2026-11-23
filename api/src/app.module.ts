@@ -27,6 +27,7 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
 import { PromotionModule } from './modules/promotion/promotion.module.js';
 import { FeesModule } from './modules/fees/fees.module.js';
 import { PortalModule } from './modules/portal/portal.module.js';
+import { WebsiteModule } from './modules/website/website.module.js';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { PortalModule } from './modules/portal/portal.module.js';
     PromotionModule,
     FeesModule,
     PortalModule,
+    WebsiteModule,
   ],
   providers: [
     ...(process.env.NODE_ENV === 'test'
