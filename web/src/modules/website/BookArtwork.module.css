@@ -1,0 +1,136 @@
+.scene {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 1.36;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    linear-gradient(150deg, transparent 26%, #e0ecd957 26.3%, transparent 59%),
+    linear-gradient(135deg, #e1e5ce, #bccdb7 59%, #9fb7a2);
+}
+
+.book {
+  position: absolute;
+  inset: 20% 13% 18%;
+  transform: rotate(-13deg) skewX(3deg);
+  filter: drop-shadow(2px 4px 0 #365747) drop-shadow(7px 14px 7px #273f334b);
+}
+
+.leftPage, .rightPage {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  border-bottom: 5px double #c2b99e;
+}
+
+.leftPage {
+  left: 0;
+  border-radius: 6% 20% 0 4% / 3% 5% 0 2%;
+  transform-origin: right center;
+  transform: skewY(7deg);
+  background: linear-gradient(90deg, #ece7d4, #fff9e7 38%, #f8f1dd 83%, #d4cbb5);
+}
+
+.rightPage {
+  right: 0;
+  transform-origin: left center;
+  transform: skewY(-7deg);
+  border-radius: 20% 6% 4% 0 / 5% 3% 2% 0;
+  background: linear-gradient(90deg, #ded5bf, #fff8e5 14%, #f5edd8 98%, #d8d0b7);
+}
+
+.rule, .caption, .lines, .plate, .diagram, .bookmark, .pencil {
+  position: absolute;
+}
+
+.rule {
+  inset: 13% 13% auto;
+  border-top: 1px solid #81907c;
+}
+
+.plate {
+  inset: 24% 13% 28%;
+  overflow: hidden;
+  background: #c2d7cc;
+}
+
+.sun {
+  position: absolute;
+  top: 14%;
+  right: 14%;
+  width: 20%;
+  aspect-ratio: 1;
+  border-radius: 100%;
+  background: #ddb05d;
+}
+
+.ridges, .ridges::after {
+  position: absolute;
+  inset: 16% -2% -2%;
+  background: #7f9a85;
+  clip-path: polygon(0 69%, 23% 34%, 37% 47%, 58% 12%, 73% 37%, 85% 27%, 100% 54%, 100% 100%, 0 100%);
+}
+
+.ridges::after {
+  content: "";
+  inset: 32% -8% -2%;
+  background: #365e4e;
+}
+
+.caption, .lines {
+  left: 13%;
+  right: 14%;
+  background: repeating-linear-gradient(180deg, #aaa68b 0 1px, transparent 1px 27%);
+}
+
+.caption { top: 77%; height: 8%; right: 35%; }
+.lines { top: 63%; height: 18%; }
+
+.diagram {
+  left: 30%;
+  top: 23%;
+  width: 38%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid #9ba994;
+  background:
+    linear-gradient(53deg, transparent 49%, #9ba994 50%, transparent 51%),
+    linear-gradient(-53deg, transparent 49%, #9ba994 50%, transparent 51%);
+}
+
+.diagram::after {
+  content: "";
+  position: absolute;
+  inset: 18% -26%;
+  border: 1px solid #a2ac94;
+  border-radius: 50%;
+  transform: rotate(-18deg);
+}
+
+.bookmark {
+  inset: 0 21% auto auto;
+  width: 7%;
+  height: 18%;
+  background: #b25e43;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+}
+
+.pencil {
+  height: 2.4%;
+  width: 39%;
+  bottom: 14%;
+  right: 3%;
+  transform: rotate(-33deg);
+  background: linear-gradient(#d9a449 0 37%, #edc674 38% 72%, #ba8337 73%);
+  box-shadow: 0 3px 3px #34473340;
+}
+
+.pencil::before {
+  content: "";
+  position: absolute;
+  inset: 0 100% 0 -10%;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  background: linear-gradient(90deg, #374737 25%, #ddc59c 26%);
+}

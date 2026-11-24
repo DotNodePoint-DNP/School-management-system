@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { hashPassword } from '../common/utils/password.js';
 import { PERMISSIONS, SYSTEM_ROLES } from '../common/constants/rbac.js';
+import { seedWebsite } from './website-seed.js';
 
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
@@ -218,6 +219,7 @@ async function main(): Promise<void> {
           });
         }
 
+        await seedWebsite(tx);
         const portal = await tx.permission.findFirstOrThrow({
           where: { module: 'portal', action: 'access' },
         });
