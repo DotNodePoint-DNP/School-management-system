@@ -1,12 +1,8 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
-import { findModule } from "@/modules/dashboard/components/Navigation";
+import { requireDashboardPage } from "@/core/session/server";
 import ClassSectionManager from "@/modules/settings/components/ClassSectionManager";
 
 const ClassSectionSetup = async () => {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
-  if (!findModule(user.permissions, "settings")) notFound();
+  const user = await requireDashboardPage("/dashboard/settings/class-section-setup");
 
   return (
     <ClassSectionManager canManage={user.permissions.includes("classes:manage")} />

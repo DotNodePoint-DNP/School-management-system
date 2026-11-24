@@ -65,7 +65,7 @@ export function ChangePassword() {
           Change your password
         </h1>
         <p className="text-sm leading-relaxed text-[#70817c]">
-          Your school requires a password change before you can continue.
+          Enter your current password and choose a new one.
         </p>
         <form className="mt-7 grid gap-4" onSubmit={handleSubmit}>
           <label className="grid gap-2 text-xs font-semibold">

@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "Pathivara School Portal",
+  "short_name": "Pathivara",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f8",
+  "theme_color": "#183944",
+  "related_applications": [{ "platform": "webapp", "url": "/manifest.webmanifest", "id": "/" }],
+  "icons": [
+    { "src": "/icons/portal-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/portal-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

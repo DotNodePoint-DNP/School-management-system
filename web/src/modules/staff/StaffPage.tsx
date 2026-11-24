@@ -2,7 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/core/session/server";
 import StaffWorkspace from "./StaffWorkspace";
 
-export default async function StaffPage() {
+export default function StaffPage() { return <StaffDirectory/>; }
+
+export async function StaffDirectory({teachingOnly=false,initialId}:{teachingOnly?:boolean; initialId?:string}) {
   const user = await getCurrentUser();
   if (!user) redirect("/auth");
   const permissions = user.permissions;
@@ -15,7 +17,10 @@ export default async function StaffPage() {
 
   return (
     <StaffWorkspace
+      teachingOnly={teachingOnly}
+      initialId={initialId}
       canCreateLogin={canCreateLogin}
+      canLinkLogin={user.roles.includes("ADMIN") && canCreateLogin && permissions.includes("users:read")}
       canManage={canManage}
       canRead={canRead}
       canReadRoles={canReadRoles}

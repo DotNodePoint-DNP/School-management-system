@@ -1,9 +1,5 @@
-import React from 'react'
+import { openFirstSection } from "@/core/session/server";
 
-const page = () => {
-  return (
-    <div>page</div>
-  )
+export default function Page() {
+  return openFirstSection("finance");
 }
-
-export default page

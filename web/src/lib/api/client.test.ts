@@ -253,6 +253,14 @@ describe("shared API client", () => {
     expect(await result.text()).toBe("image");
   });
 
+  it("supports a localhost production preview with an explicitly configured API", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:3001");
+    expect(getApiBaseUrl()).toBe("http://localhost:3001/api/v1");
+    vi.stubGlobal("window", { location: { hostname: "school.example" } });
+    expect(() => getApiBaseUrl()).toThrow("HTTPS");
+  });
+
   it("requires an HTTPS backend URL in production", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_API_URL", "http://api.example.test");

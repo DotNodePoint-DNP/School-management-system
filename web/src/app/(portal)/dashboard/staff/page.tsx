@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { openFirstSection } from "@/core/session/server";
 
-export default function StaffIndexPage() {
-  redirect("/dashboard/staff/directory");
+export default function Page() {
+  return openFirstSection("staff");
 }

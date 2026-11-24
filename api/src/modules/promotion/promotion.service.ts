@@ -703,11 +703,16 @@ export class PromotionService {
       },
       q.order ?? 'RANK',
     );
+    const destinations = await this.prisma.schoolClass.findMany({
+      where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, sections: { where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } } },
+    });
     return {
       runId: run.id,
       status: run.status,
       class: { id: cls.id, name: cls.name, nextClass: cls.nextClass },
       students,
+      destinations,
     };
   }
 

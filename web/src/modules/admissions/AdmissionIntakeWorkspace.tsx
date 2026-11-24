@@ -12,6 +12,7 @@ import {
   createStudent,
   type CreateStudentResponse,
   type GuardianRelationship,
+  type GuardianInput,
   type StudentGender,
 } from "./services/students";
 import {
@@ -23,7 +24,9 @@ import {
   formFieldClass,
 } from "./components/shared";
 
-type Props = { canManageEnrollments: boolean };
+import { GuardianPicker } from "@/modules/students/GuardianPicker";
+
+type Props = { canSetAdmissionNumber: boolean; canManageGuardians: boolean; canReadGuardians: boolean; canManageEnrollments: boolean };
 type FormValues = {
   firstName: string;
   middleName: string;
@@ -33,14 +36,9 @@ type FormValues = {
   dateOfBirth: string;
   admissionDate: string;
   address: string;
-  guardianFirstName: string;
-  guardianLastName: string;
-  guardianRelationship: GuardianRelationship | "";
-  guardianPhone: string;
-  guardianEmail: string;
-  guardianOccupation: string;
-  createLogin: boolean;
-  phoneConfirmed: boolean;
+  calendar: "AD" | "BS";
+  admissionNo: string;
+  rollNo: string;
   placeStudent: boolean;
   academicYearId: string;
   sectionId: string;
@@ -55,14 +53,9 @@ const initialForm: FormValues = {
   dateOfBirth: "",
   admissionDate: "",
   address: "",
-  guardianFirstName: "",
-  guardianLastName: "",
-  guardianRelationship: "",
-  guardianPhone: "",
-  guardianEmail: "",
-  guardianOccupation: "",
-  createLogin: false,
-  phoneConfirmed: false,
+  calendar: "AD",
+  admissionNo: "",
+  rollNo: "",
   placeStudent: false,
   academicYearId: "",
   sectionId: "",
@@ -80,9 +73,14 @@ const RELATIONSHIPS: { value: GuardianRelationship; label: string }[] = [
 ];
 
 export default function AdmissionIntakeWorkspace({
-  canManageEnrollments,
+  canManageEnrollments, canReadGuardians, canManageGuardians, canSetAdmissionNumber,
 }: Props) {
   const queryClient = useQueryClient();
+  const firstGuardian = { key: "first", relationship: "FATHER" as GuardianRelationship, isPrimary: true, isEmergencyContact: true, createLogin: false };
+  const [guardians, setGuardians] = useState<(GuardianInput & { key: string; displayName?: string })[]>([firstGuardian]);
+  function editGuardian(key: string, changes: Partial<GuardianInput>) {
+    setGuardians(rows => rows.map(row => row.key === key ? { ...row, ...changes } : changes.isPrimary ? { ...row, isPrimary: false } : row));
+  }
   const [form, setForm] = useState(initialForm);
   const [confirmNotDuplicate, setConfirmNotDuplicate] = useState(false);
   const [duplicateReviewRequired, setDuplicateReviewRequired] = useState(false);
@@ -133,39 +131,25 @@ export default function AdmissionIntakeWorkspace({
         lastName: form.lastName.trim(),
         ...(form.fullNameNp.trim() ? { fullNameNp: form.fullNameNp.trim() } : {}),
         gender: form.gender as StudentGender,
-        dateOfBirth: form.dateOfBirth,
-        ...(form.admissionDate ? { admissionDate: form.admissionDate } : {}),
+        [form.calendar === "AD" ? "dateOfBirth" : "dateOfBirthBs"]: form.dateOfBirth,
+        ...(form.admissionDate ? { [form.calendar === "AD" ? "admissionDate" : "admissionDateBs"]: form.admissionDate } : {}),
         ...(form.address.trim() ? { address: form.address.trim() } : {}),
+        ...(canSetAdmissionNumber && form.admissionNo.trim() ? { admissionNo: form.admissionNo.trim() } : {}),
         confirmNotDuplicate,
-        guardians: [
-          {
-            firstName: form.guardianFirstName.trim(),
-            ...(form.guardianLastName.trim()
-              ? { lastName: form.guardianLastName.trim() }
-              : {}),
-            relationship: form.guardianRelationship as GuardianRelationship,
-            ...(form.guardianPhone.trim()
-              ? { phone: form.guardianPhone.trim() }
-              : {}),
-            ...(form.guardianEmail.trim()
-              ? { email: form.guardianEmail.trim() }
-              : {}),
-            ...(form.guardianOccupation.trim()
-              ? { occupation: form.guardianOccupation.trim() }
-              : {}),
-            isPrimary: true,
-            isEmergencyContact: true,
-            createLogin: form.createLogin,
-            ...(form.createLogin && form.phoneConfirmed
-              ? { phoneConfirmed: true }
-              : {}),
-          },
-        ],
+        guardians: guardians.map(g => {
+          const link = { relationship: g.relationship, isPrimary: g.isPrimary, isEmergencyContact: g.isEmergencyContact, createLogin: g.createLogin, portalAccess: g.portalAccess };
+          if (g.guardianId) return { ...link, guardianId: g.guardianId };
+          return { ...link, firstName: g.firstName?.trim(), middleName: g.middleName?.trim() || undefined,
+            lastName: g.lastName?.trim() || undefined, fullNameNp: g.fullNameNp?.trim() || undefined,
+            phone: g.phone?.trim() || undefined, email: g.email?.trim() || undefined,
+            address: g.address?.trim() || undefined, occupation: g.occupation?.trim() || undefined, phoneConfirmed: g.phoneConfirmed };
+        }),
         ...(form.placeStudent && canManageEnrollments
           ? {
               placement: {
                 academicYearId: yearId,
                 sectionId: selectedSectionId,
+                ...(form.rollNo ? { rollNo: Number(form.rollNo) } : {}),
               },
             }
           : {}),
@@ -191,18 +175,25 @@ export default function AdmissionIntakeWorkspace({
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    if (["firstName", "lastName", "dateOfBirth", "calendar"].includes(key)) {
+      setDuplicateReviewRequired(false);
+      setConfirmNotDuplicate(false);
+    }
     if (created) setCreated(null);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form.guardianPhone.trim() && !form.guardianEmail.trim()) {
-      toast.error("Add a guardian phone number or email address.");
-      return;
-    }
-    if (form.createLogin && (!form.guardianPhone.trim() || !form.phoneConfirmed)) {
-      toast.error("Confirm the guardian phone number before enabling login.");
-      return;
+    for (const guardian of guardians) {
+      if (guardian.guardianId) continue;
+      if (!guardian.phone?.trim() && !guardian.email?.trim()) {
+        toast.error("Enter a phone number or email for each new guardian.");
+        return;
+      }
+      if (guardian.createLogin && (!guardian.phone?.trim() || !guardian.phoneConfirmed)) {
+        toast.error("Confirm the phone number for each new login.");
+        return;
+      }
     }
     if (form.placeStudent && (!yearId || !selectedSectionId)) {
       toast.error("Choose an available academic year and active class section for placement.");
@@ -227,8 +218,8 @@ export default function AdmissionIntakeWorkspace({
         title="Student admission"
         description="Create a student record with a primary guardian. Admission numbers are assigned automatically by the school register."
       />
-      {created && <AdmissionSuccess result={created} onNew={() => { setForm(initialForm); setCreated(null); }} />}
-      <form className="space-y-5" onSubmit={submit}>
+      {created && <AdmissionSuccess result={created} onNew={() => { setForm(initialForm); setGuardians([firstGuardian]); setCreated(null); }} />}
+      <form onSubmit={submit}><fieldset disabled={createMutation.isPending || Boolean(created)} className="space-y-5">
         <section className="space-y-4 rounded-lg border border-line bg-panel p-5">
           <div className="border-b border-line pb-3"><h2 className="font-semibold">Student details</h2><p className="mt-1 text-xs text-muted">Enter the student&apos;s legal name and date of birth.</p></div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -239,34 +230,55 @@ export default function AdmissionIntakeWorkspace({
             <AdmissionSelect label="Gender" onChange={(value) => update("gender", value as StudentGender | "")} required value={form.gender}>
               <option value="">Select gender</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option>
             </AdmissionSelect>
-            <AdmissionField label="Date of birth · AD" required><input className={formFieldClass} max={new Date().toISOString().slice(0, 10)} onChange={(event) => update("dateOfBirth", event.target.value)} required type="date" value={form.dateOfBirth} /></AdmissionField>
-            <AdmissionField label="Admission date · AD" hint="Leave blank to use today."><input className={formFieldClass} onChange={(event) => update("admissionDate", event.target.value)} type="date" value={form.admissionDate} /></AdmissionField>
+            <AdmissionSelect label="Date calendar" value={form.calendar} onChange={value => {
+              setForm(current => ({ ...current, calendar: value as "AD" | "BS", dateOfBirth: "", admissionDate: "" }));
+              setConfirmNotDuplicate(false); setDuplicateReviewRequired(false);
+            }}><option>AD</option><option>BS</option></AdmissionSelect>
+            {(["dateOfBirth", "admissionDate"] as const).map(field => <AdmissionField key={field} label={(field === "dateOfBirth" ? "Date of birth" : "Admission date") + " · " + form.calendar} required={field === "dateOfBirth"}>
+              <input className={formFieldClass} required={field === "dateOfBirth"} type={form.calendar === "AD" ? "date" : "text"}
+                pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="YYYY-MM-DD" value={form[field]} onChange={event => update(field, event.target.value)} />
+            </AdmissionField>)}
+            {canSetAdmissionNumber && <AdmissionField label="Existing admission number" hint="For an existing register. Leave blank to assign automatically."><input className={formFieldClass} maxLength={30} value={form.admissionNo} onChange={event => update("admissionNo", event.target.value)} /></AdmissionField>}
             <AdmissionField label="Home address" hint="Optional · up to 255 characters"><input autoComplete="street-address" className={formFieldClass} maxLength={255} onChange={(event) => update("address", event.target.value)} value={form.address} /></AdmissionField>
           </div>
         </section>
 
         <section className="space-y-4 rounded-lg border border-line bg-panel p-5">
-          <div className="border-b border-line pb-3"><h2 className="font-semibold">Primary guardian</h2><p className="mt-1 text-xs text-muted">Add at least one reachable guardian. Login creation is optional.</p></div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AdmissionField label="Guardian first name" required><input autoComplete="given-name" className={formFieldClass} maxLength={60} onChange={(event) => update("guardianFirstName", event.target.value)} required value={form.guardianFirstName} /></AdmissionField>
-            <AdmissionField label="Guardian last name"><input autoComplete="family-name" className={formFieldClass} maxLength={60} onChange={(event) => update("guardianLastName", event.target.value)} value={form.guardianLastName} /></AdmissionField>
-            <AdmissionSelect label="Relationship" onChange={(value) => update("guardianRelationship", value as GuardianRelationship | "")} required value={form.guardianRelationship}>
-              <option value="">Select relationship</option>{RELATIONSHIPS.map((relationship) => <option key={relationship.value} value={relationship.value}>{relationship.label}</option>)}
-            </AdmissionSelect>
-            <AdmissionField label="Occupation"><input className={formFieldClass} maxLength={80} onChange={(event) => update("guardianOccupation", event.target.value)} value={form.guardianOccupation} /></AdmissionField>
-            <AdmissionField label="Phone number" hint="At least one phone number or email is required."><input autoComplete="tel" className={formFieldClass} maxLength={20} onChange={(event) => update("guardianPhone", event.target.value)} type="tel" value={form.guardianPhone} /></AdmissionField>
-            <AdmissionField label="Email address" hint="At least one phone number or email is required."><input autoComplete="email" className={formFieldClass} maxLength={254} onChange={(event) => update("guardianEmail", event.target.value)} type="email" value={form.guardianEmail} /></AdmissionField>
-          </div>
-          <div className="space-y-3 rounded-md bg-background p-4">
-            <label className="flex items-start gap-3 text-sm">
-              <input checked={form.createLogin} className="mt-0.5 accent-teal" onChange={(event) => update("createLogin", event.target.checked)} type="checkbox" />
-              <span><span className="font-semibold">Create a guardian portal login</span><span className="mt-0.5 block text-xs text-muted">Credentials will be provisioned after the student is saved.</span></span>
-            </label>
-            {form.createLogin && <label className="flex items-start gap-3 border-t border-line pt-3 text-sm">
-              <input checked={form.phoneConfirmed} className="mt-0.5 accent-teal" onChange={(event) => update("phoneConfirmed", event.target.checked)} type="checkbox" />
-              <span><span className="font-semibold">I confirmed this guardian&apos;s phone number</span><span className="mt-0.5 block text-xs text-muted">Backend requires confirmation before sending credentials to a new phone.</span></span>
-            </label>}
-          </div>
+          <h2 className="font-semibold">Guardians</h2>
+          {guardians.map((guardian, index) => <fieldset key={guardian.key} className="space-y-3 rounded border border-line p-3">
+            <legend>{guardian.displayName ?? `Guardian ${index + 1}`}</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {!guardian.guardianId && ([
+                ["firstName", "First name", 60], ["middleName", "Middle name", 60], ["lastName", "Last name", 60],
+                ["fullNameNp", "Name in Nepali", 150], ["phone", "Phone", 20], ["email", "Email", 254],
+                ["address", "Address", 255], ["occupation", "Occupation", 80],
+              ] as const).map(([field, label, max]) => <AdmissionField key={field} label={label} required={field === "firstName"}>
+                <input className={formFieldClass} required={field === "firstName"} type={field === "email" ? "email" : field === "phone" ? "tel" : "text"}
+                  maxLength={max} value={guardian[field] ?? ""} onChange={event => editGuardian(guardian.key, { [field]: event.target.value, ...(field === "phone" ? { phoneConfirmed: false } : {}) })} />
+              </AdmissionField>)}
+              <AdmissionSelect label="Relationship" value={guardian.relationship} onChange={value => editGuardian(guardian.key, { relationship: value as GuardianRelationship })}>
+                {RELATIONSHIPS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </AdmissionSelect>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <label><input type="radio" name="primaryGuardian" checked={guardian.isPrimary} onChange={() => editGuardian(guardian.key, { isPrimary: true })} /> Primary guardian</label>
+              <label><input type="checkbox" checked={guardian.isEmergencyContact} onChange={event => editGuardian(guardian.key, { isEmergencyContact: event.target.checked })} /> Emergency contact</label>
+              {canManageGuardians && <label><input type="checkbox" checked={guardian.portalAccess ?? true} onChange={event => editGuardian(guardian.key, { portalAccess: event.target.checked, ...(!event.target.checked ? { createLogin: false, phoneConfirmed: false } : {}) })} /> Can view this child</label>}
+              {!guardian.guardianId && guardian.portalAccess !== false && <label><input type="checkbox" checked={guardian.createLogin} onChange={event => editGuardian(guardian.key, { createLogin: event.target.checked, phoneConfirmed: false })} /> Create login</label>}
+              {guardian.createLogin && <label><input type="checkbox" checked={guardian.phoneConfirmed ?? false} onChange={event => editGuardian(guardian.key, { phoneConfirmed: event.target.checked })} /> I confirmed this phone number</label>}
+              {guardians.length > 1 && <button type="button" onClick={() => setGuardians(rows => {
+                const remaining = rows.filter(row => row.key !== guardian.key);
+                return guardian.isPrimary ? remaining.map((row, i) => ({ ...row, isPrimary: i === 0 })) : remaining;
+              })}>Remove guardian</button>}
+            </div>
+          </fieldset>)}
+          {guardians.length < 6 && <>
+            <button type="button" className="font-semibold text-teal" onClick={() => setGuardians(rows => [...rows, { ...firstGuardian, key: crypto.randomUUID(), isPrimary: false, isEmergencyContact: false }])}>Add new guardian</button>
+            {canReadGuardians && <GuardianPicker exclude={guardians.flatMap(row => row.guardianId ? [row.guardianId] : [])} onSelect={g => setGuardians(rows => {
+              const replaceBlank = rows.length === 1 && !rows[0].guardianId && !["firstName", "middleName", "lastName", "fullNameNp", "phone", "email", "address", "occupation"].some(field => rows[0][field as keyof GuardianInput]);
+              return [...(replaceBlank ? [] : rows), { ...firstGuardian, key: g.id, guardianId: g.id, displayName: [g.firstName, g.lastName].filter(Boolean).join(" "), isPrimary: replaceBlank, isEmergencyContact: replaceBlank }];
+            })} />}
+          </>}
         </section>
 
         {canManageEnrollments && <section className="space-y-4 rounded-lg border border-line bg-panel p-5">
@@ -280,11 +292,13 @@ export default function AdmissionIntakeWorkspace({
             <AdmissionSelect label="Class and section" onChange={(value) => update("sectionId", value)} required value={selectedSectionId}>
               {sections.map((item) => <option key={item.id} value={item.id}>{item.className} · {item.name}</option>)}
             </AdmissionSelect>
-            {section && <p className="text-xs text-muted sm:col-span-2">Roll number is assigned automatically{section.capacity !== null ? ` · section capacity ${section.capacity}` : ""}.</p>}
+            <AdmissionField label="Roll number" hint="Leave blank for automatic assignment."><input className={formFieldClass} type="number" min={1} max={999} value={form.rollNo} onChange={event => update("rollNo", event.target.value)} /></AdmissionField>
+            {section && <p className="text-xs text-muted sm:col-span-2">Selected section: {section.name}{section.capacity !== null ? ` · section capacity ${section.capacity}` : ""}.</p>}
           </div>}
         </section>}
 
         {duplicateReviewRequired && <div className="rounded-lg border border-amber/40 bg-amber/10 p-4">
+          <p>{createMutation.error?.message.split(". If this is")[0]}</p>
           <label className="flex items-start gap-3 text-sm"><input checked={confirmNotDuplicate} className="mt-0.5 accent-teal" onChange={(event) => setConfirmNotDuplicate(event.target.checked)} type="checkbox" /><span><span className="font-semibold">I reviewed the possible match and confirmed this is a different student.</span><span className="mt-1 block text-xs text-muted">The backend checks first name, last name and date of birth before creating a record.</span></span></label>
         </div>}
 
@@ -295,7 +309,7 @@ export default function AdmissionIntakeWorkspace({
             {createMutation.isPending ? "Saving student…" : "Create student record"}
           </button>
         </div>
-      </form>
+      </fieldset></form>
     </main>
   );
 }
@@ -317,6 +331,7 @@ function AdmissionSuccess({
         </div>
         <button className="rounded-md border border-teal/30 px-3 py-2 text-xs font-semibold text-teal hover:bg-white/50" onClick={onNew} type="button">Register another student</button>
       </div>
+      <p className="text-sm">Birth date {student.dateOfBirth} AD{student.dateOfBirthBs && ` · ${student.dateOfBirthBs} BS`} · Admission date {student.admissionDate} AD{student.admissionDateBs && ` · ${student.admissionDateBs} BS`}</p>
       {result.logins.length > 0 && <div className="mt-4 flex items-start gap-2 border-t border-teal/20 pt-3 text-xs"><ShieldCheck className="h-4 w-4 shrink-0 text-teal" /><p>Guardian login provisioning: {result.logins.map((login) => login.message ?? login.status).join(" · ")}</p></div>}
     </section>
   );

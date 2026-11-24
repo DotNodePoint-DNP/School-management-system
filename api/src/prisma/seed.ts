@@ -8,7 +8,6 @@ async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  console.log('SEED SCRIPT PASSWORD READ:', JSON.stringify(adminPassword));
 
   if (!connectionString || !adminEmail || !adminPassword) {
     throw new Error(

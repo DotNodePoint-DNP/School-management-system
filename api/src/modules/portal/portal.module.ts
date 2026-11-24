@@ -11,8 +11,10 @@ import { PortalResultsService } from './portal-results.service.js';
 import { PortalController } from './portal.controller.js';
 import { PortalService } from './portal.service.js';
 
+import { StudentsModule } from '../students/students.module.js';
+
 @Module({
-  imports: [AttendanceModule, DocumentsModule, ExamsModule, FeesModule],
+  imports: [StudentsModule, AttendanceModule, DocumentsModule, ExamsModule, FeesModule],
   controllers: [PortalController, PortalFeesController],
   providers: [
     PortalAccessService,

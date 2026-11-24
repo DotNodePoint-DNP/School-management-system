@@ -1,10 +1,8 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
+import { requireDashboardPage } from "@/core/session/server";
 import ResultsWorkspace from "@/modules/examination-gradebook/ResultsWorkspace";
 
 export default async function ResultsPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
+  const user = await requireDashboardPage("/dashboard/Examination-Gradebook/results");
   const canPreview = user.permissions.includes("results:preview");
   const canReadResults = user.permissions.some((permission) =>
     ["results:read", "results:read-all"].includes(permission),
@@ -16,7 +14,6 @@ export default async function ResultsPage() {
   const canEnterRemarks = user.permissions.some((permission) =>
     ["remarks:enter", "remarks:enter-any"].includes(permission),
   );
-  if (!canPreview && !canReadResults && !canManagePolicy) notFound();
 
   return (
     <ResultsWorkspace

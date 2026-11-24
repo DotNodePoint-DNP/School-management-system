@@ -1,13 +1,12 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
+import { notFound } from "next/navigation";
+import { requireDashboardPage } from "@/core/session/server";
 import { PageHeader } from "@/modules/dashboard/components/PageHeader";
 import { findModule, moduleHref } from "@/modules/dashboard/components/Navigation";
 import SchoolProfileForm from "@/modules/settings/components/SchoolProfileForm";
 import SchoolProfileHistory from "@/modules/settings/components/SchoolProfileHistory";
 
 export default async function SchoolProfilePage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
+  const user = await requireDashboardPage("/dashboard/settings/school-profile");
 
   const navModule = findModule(user.permissions, "settings");
   if (!navModule) notFound();

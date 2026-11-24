@@ -3,6 +3,7 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 export const USER_SELECT = {
   id: true,
   fullName: true,
+  staff: { select: { staffNo: true } },
   email: true,
   phone: true,
   isActive: true,
@@ -17,6 +18,7 @@ type UserRow = Prisma.UserGetPayload<{ select: typeof USER_SELECT }>;
 export interface UserResponse {
   id: string;
   fullName: string;
+  staff: { staffNo: string } | null;
   email: string | null;
   phone: string | null;
   isActive: boolean;

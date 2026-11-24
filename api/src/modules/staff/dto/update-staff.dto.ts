@@ -23,18 +23,18 @@ export class UpdateStaffDto {
   @MinLength(1)
   @MaxLength(60)
   firstName?: string;
-  @IsOptional() @Trim() @IsString() @MaxLength(60) middleName?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(60) middleName?: string | null;
   @IsOptional()
   @Trim()
   @IsString()
   @MinLength(1)
   @MaxLength(60)
   lastName?: string;
-  @IsOptional() @Trim() @IsString() @MaxLength(150) fullNameNp?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(150) fullNameNp?: string | null;
   @IsOptional() @IsIn(GENDERS) gender?: GenderValue;
   @IsOptional()
   @Matches(DATE_SHAPE, { message: 'dateOfBirth must be YYYY-MM-DD' })
-  dateOfBirth?: string;
+  dateOfBirth?: string | null;
   @IsOptional()
   @Matches(DATE_SHAPE, { message: 'dateOfBirthBs must be YYYY-MM-DD' })
   dateOfBirthBs?: string;
@@ -44,9 +44,9 @@ export class UpdateStaffDto {
   @IsOptional()
   @Matches(DATE_SHAPE, { message: 'joinDateBs must be YYYY-MM-DD' })
   joinDateBs?: string;
-  @IsOptional() @Trim() @IsString() @MaxLength(20) phone?: string;
-  @IsOptional() @Trim() @IsEmail() @MaxLength(254) email?: string;
-  @IsOptional() @Trim() @IsString() @MaxLength(255) address?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(20) phone?: string | null;
+  @IsOptional() @Trim() @IsEmail() @MaxLength(254) email?: string | null;
+  @IsOptional() @Trim() @IsString() @MaxLength(255) address?: string | null;
   @IsOptional() @IsIn(STAFF_KINDS) kind?: StaffKindValue;
-  @IsOptional() @Trim() @IsString() @MaxLength(80) designation?: string;
+  @IsOptional() @Trim() @IsString() @MaxLength(80) designation?: string | null;
 }

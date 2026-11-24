@@ -42,8 +42,8 @@ const WORKSPACES = [
     visible: (props: Props) => props.canManageEnrollments || props.canReadOccupancy,
   },
   {
-    href: "/dashboard/Admission-Enrollment/students",
-    title: "Student admissions",
+    href: "/dashboard/student-info/student-directory",
+    title: "Student directory",
     description: "Search and review student records returned by the school register.",
     icon: ClipboardList,
     visible: (props: Props) => props.canReadStudents,

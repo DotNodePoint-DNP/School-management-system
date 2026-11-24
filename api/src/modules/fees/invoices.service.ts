@@ -184,6 +184,11 @@ export class InvoicesService {
         ...LIST_SELECT,
         replacesInvoiceId: true,
         replacedBy: { select: { id: true, number: true } },
+        allocations: {
+          where: { payment: { reversal: { is: null } } },
+          select: { amount: true, payment: { select: { id: true, receiptNo: true, paidOn: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
         lines: {
           orderBy: { id: 'asc' },
           select: {
@@ -250,6 +255,7 @@ export class InvoicesService {
 
     return {
       ...toItem(row, balance, todayIso()),
+      payments: row.allocations.map(a => ({ paymentId: a.payment.id, receiptNo: a.payment.receiptNo, paidOn: a.payment.paidOn.toISOString().slice(0, 10), amount: a.amount.toNumber() })),
       replacesInvoiceId: row.replacesInvoiceId,
       replacedBy: row.replacedBy,
       lines: row.lines.map((l) => ({

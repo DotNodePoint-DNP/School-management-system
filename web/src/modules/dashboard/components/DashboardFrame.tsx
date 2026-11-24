@@ -1,6 +1,6 @@
 // src/modules/dashboard/components/DashboardFrame.tsx
 import type { ReactNode } from "react";
-import { roleDetails, type CurrentUser } from "@/core/authorization/roles";
+import { roleLabel, type CurrentUser } from "@/core/authorization/roles";
 
 import { DashboardShell } from "@/modules/dashboard/components/DashboardShell";
 import { modulesForPermissions } from "./Navigation";
@@ -17,7 +17,7 @@ export function DashboardFrame({
       modules={modulesForPermissions(user.permissions)}
       user={{
         displayName: user.displayName,
-        roleLabel: roleDetails[user.role].label,
+        roleLabel: roleLabel(user),
       }}
     >
       {children}

@@ -3,9 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { RecordDisclosure } from "@/components/RecordDisclosure";
 import { ApiClientError } from "@/lib/api/client";
 import {
   createSchoolClass,
+  getSchoolClass,
   createSchoolSection,
   deleteSchoolClass,
   deleteSchoolSection,
@@ -230,6 +232,7 @@ function ClassCard({
 
   return (
     <section className="space-y-4 rounded-lg border border-line bg-panel p-4 md:p-5">
+      <RecordDisclosure label={"Class details ? "+schoolClass.name} queryKey={[...classesQueryKey,schoolClass.id]} load={()=>getSchoolClass(schoolClass.id)}/>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-xs font-semibold text-muted">
