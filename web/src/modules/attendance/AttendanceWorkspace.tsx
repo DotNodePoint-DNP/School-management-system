@@ -1,3 +1,4 @@
+import { hasDashboardAccess } from "@/core/authorization/dashboard-access";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -8,13 +9,6 @@ import {
 } from "lucide-react";
 import { AttendanceHeader } from "./components/shared";
 
-type Props = {
-  canRead: boolean;
-  canMark: boolean;
-  canManageCalendar: boolean;
-  canReadChanges: boolean;
-  canViewPending: boolean;
-};
 
 const WORKSPACES = [
   {
@@ -23,7 +17,6 @@ const WORKSPACES = [
     description:
       "Open a class register, record student status and submit or correct attendance.",
     icon: ListChecks,
-    permission: (props: Props) => props.canRead || props.canMark,
   },
   {
     href: "/dashboard/attendance/reports",
@@ -31,7 +24,6 @@ const WORKSPACES = [
     description:
       "Explore section totals, individual histories and attendance trends.",
     icon: Users,
-    permission: (props: Props) => props.canRead,
   },
   {
     href: "/dashboard/attendance/pending",
@@ -39,7 +31,6 @@ const WORKSPACES = [
     description:
       "See which active sections still need to submit their daily register.",
     icon: FileClock,
-    permission: (props: Props) => props.canViewPending,
   },
   {
     href: "/dashboard/attendance/corrections",
@@ -47,7 +38,6 @@ const WORKSPACES = [
     description:
       "Review recorded changes, reasons and the user who made each correction.",
     icon: FileClock,
-    permission: (props: Props) => props.canReadChanges,
   },
   {
     href: "/dashboard/attendance/calendar",
@@ -55,12 +45,11 @@ const WORKSPACES = [
     description:
       "Manage holidays, weekly off days, working days and the edit window.",
     icon: CalendarDays,
-    permission: (props: Props) => props.canRead || props.canManageCalendar,
   },
 ];
 
-export default function AttendanceWorkspace(props: Props) {
-  const workspaces = WORKSPACES.filter((item) => item.permission(props));
+export default function AttendanceWorkspace({ permissions }: { permissions: string[] }) {
+  const workspaces = WORKSPACES.filter((item) => hasDashboardAccess(item.href, permissions));
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-4 text-ink md:p-6">
       <AttendanceHeader

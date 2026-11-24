@@ -24,6 +24,7 @@
     "pretest:e2e": "prisma generate",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "prisma:generate": "prisma generate",
+    "seed:website": "tsx src/prisma/seed-website.ts",
     "prisma:validate": "prisma validate"
   },
   "dependencies": {

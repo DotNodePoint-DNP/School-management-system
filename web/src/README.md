@@ -15,7 +15,7 @@ The marketing website is served on the primary domain, for example `Pathivara .e
 
 ## Roles
 
-The frontend recognizes four roles: `teacher_staff`, `school_admin`, `accountant`, and `parent`. `src/core/authorization/` owns permissions and role-aware navigation. These checks control the interface only; the API must independently authorize every request and enforce school/tenant scope.
+The frontend accepts system and custom roles. Effective permissions from the API determine visible workspaces and actions. These checks control the interface only; the API must independently authorize every request and enforce school/tenant scope.
 
 Set `NEXT_PUBLIC_API_URL` at build time to the browser-reachable backend origin, optionally including `/api/v1` (for example, `https://api.example.com/api/v1`). The shared API client adds `/api/v1` when it is not already present. Production requires HTTPS. This URL is public configuration, not a secret. Configure the API server's `CORS_ORIGINS` for the web app origin when using direct browser API requests.
 
@@ -25,4 +25,4 @@ The workspace shown after sign-in is derived from the backend system roles (`ADM
 
 ## PWA
 
-The installable app is configured through `src/app/manifest.ts`, `public/icons/icon.svg`, and `public/sw.js`. The service worker is registered only in production and caches the app shell plus same-origin frontend resources. API and GraphQL paths are deliberately excluded so live school data is never served from a stale cache.
+The sign-in page advertises `public/manifest.webmanifest`. The installed app opens `/dashboard`. On secure origins, including localhost during development, `PortalWorker` registers workers scoped to `/auth` and `/dashboard`. The install offer lives on `/auth` before login. The worker provides a generic offline navigation response. The legacy `public/sw.js` retires the old root registration and its cache.

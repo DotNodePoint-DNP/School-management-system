@@ -1,7 +1,7 @@
-import { RolesPermissionMatrix } from '@/modules/settings/components/roles-permissions/RolesPermissionMatrix'
+import { requireDashboardPage } from "@/core/session/server";
+import { RolesPermissionMatrix } from "@/modules/settings/components/roles-permissions/RolesPermissionMatrix";
 
-const RolePermission = () => {
-  return <RolesPermissionMatrix />
+export default async function RolePermissionsPage() {
+  const user = await requireDashboardPage("/dashboard/settings/roles-permissions");
+  return <RolesPermissionMatrix canManage={user.permissions.includes("roles:manage")} />;
 }
-
-export default RolePermission

@@ -149,17 +149,29 @@ export async function setAuthCookies(
 ): Promise<void> {
   const refresh = backendRefreshCookie(backendResponse);
   const currentUser = currentUserFromApi(user);
-  const session = await createSession(currentUser, accessToken, refresh.expires);
+  await setSessionCookie(response, currentUser, accessToken, refresh.expires);
+  response.cookies.set(refreshCookieName, refresh.value, {
+    httpOnly: true, secure: process.env.NODE_ENV === "production",
+    sameSite: "strict", path: "/", expires: refresh.expires,
+  });
+}
+
+export async function setSessionCookie(
+  response: NextResponse,
+  user: ReturnType<typeof currentUserFromApi>,
+  accessToken: string,
+  expires: Date,
+) {
+  const session = await createSession(user, accessToken, expires);
   const secure = process.env.NODE_ENV === "production";
   const options = {
     httpOnly: true,
     secure,
     sameSite: "strict" as const,
     path: "/",
-    expires: refresh.expires,
+    expires,
   };
 
-  response.cookies.set(refreshCookieName, refresh.value, options);
   response.cookies.set(sessionCookieName, session, options);
 }
 

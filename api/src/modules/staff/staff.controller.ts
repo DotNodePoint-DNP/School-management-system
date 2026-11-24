@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import type { Paginated } from '../../common/dto/pagination.dto.js';
@@ -89,6 +90,16 @@ export class StaffController {
     @CurrentUser() actor: AuthUser,
   ): Promise<{ staff: StaffResponse; temporaryPassword: string }> {
     return this.staff.createLogin(id, dto, actor);
+  }
+
+  @Put(':id/login/:userId')
+  @RequirePermissions('staff:create-login', 'users:read')
+  linkLogin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<StaffResponse> {
+    return this.staff.linkLogin(id, userId, actor);
   }
 
   @Delete(':id')

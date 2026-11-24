@@ -75,6 +75,8 @@ export async function listExams(yearId: string): Promise<Exam[]> {
   return client().get<Exam[]>(`/academic-years/${encodeId(yearId)}/exams`);
 }
 
+export const getExam = (id: string) => client().get<Exam>(examPath(id));
+
 export async function createExam(
   yearId: string,
   input: ExamInput,

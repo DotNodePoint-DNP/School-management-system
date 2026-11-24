@@ -1,15 +1,8 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
+import { requireDashboardPage } from "@/core/session/server";
 import ExamWorkflowWorkspace from "@/modules/examination-gradebook/ExamWorkflowWorkspace";
 
 export default async function MarksLockingPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
-  if (
-    !user.permissions.some((permission) =>
-      ["marks:read-all", "exams:lock", "exams:publish"].includes(permission),
-    )
-  ) notFound();
+  const user = await requireDashboardPage("/dashboard/Examination-Gradebook/marks-locking");
 
   return (
     <ExamWorkflowWorkspace

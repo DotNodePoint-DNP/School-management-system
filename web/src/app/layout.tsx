@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
-import { PwaRegister } from "@/components/PwaRegister";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/features/theme/Theme-provider";
@@ -21,7 +20,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </ThemeProvider>
           <NetworkStatus />
           <Toaster position="top-right" richColors closeButton />
-          <PwaRegister />
       </body>
     </html>
   );

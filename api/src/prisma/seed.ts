@@ -3,12 +3,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { hashPassword } from '../common/utils/password.js';
 import { PERMISSIONS, SYSTEM_ROLES } from '../common/constants/rbac.js';
+import { seedWebsite } from './website-seed.js';
 
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  console.log('SEED SCRIPT PASSWORD READ:', JSON.stringify(adminPassword));
 
   if (!connectionString || !adminEmail || !adminPassword) {
     throw new Error(
@@ -219,6 +219,7 @@ async function main(): Promise<void> {
           });
         }
 
+        await seedWebsite(tx);
         const portal = await tx.permission.findFirstOrThrow({
           where: { module: 'portal', action: 'access' },
         });

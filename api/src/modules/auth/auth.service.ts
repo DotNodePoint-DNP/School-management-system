@@ -40,6 +40,22 @@ export class AuthService {
     this.accessTtlSeconds = config.getOrThrow<number>('JWT_ACCESS_TTL_SECONDS');
   }
 
+  async updateProfile(actor: AuthUser, fullName: string): Promise<AuthUser> {
+    const updated = await this.prisma.user.update({
+      where: { id: actor.id },
+      data: { fullName },
+      select: { fullName: true },
+    });
+    await this.audit.record({
+      actor,
+      action: 'user.updated',
+      entityType: 'user',
+      entityId: actor.id,
+      details: { changedFields: ['fullName'] },
+    });
+    return { ...actor, fullName: updated.fullName };
+  }
+
   async login(dto: LoginDto, meta: RequestMeta): Promise<IssuedSession> {
     const identifier = parseIdentifier(dto.identifier);
     const user = identifier

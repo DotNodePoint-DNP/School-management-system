@@ -42,12 +42,14 @@ export const AUDIT_ACTIONS = [
   'staff.left',
   'staff.reactivated',
   'staff.login_created',
+  'staff.login_linked',
   'staff.deleted',
   'teaching.class_teacher_set',
   'teaching.subject_teacher_set',
   // students
   'student.created',
   'student.updated',
+  'student.document_uploaded',
   'student.guardians_changed',
   'student.deleted',
   'guardian.updated',
@@ -162,5 +164,6 @@ export const AUDIT_ACTIONS = [
   'fee_reminders.sent',
   'exam.release_set',
   'guardian.portal_access_changed',
+  'website.saved',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

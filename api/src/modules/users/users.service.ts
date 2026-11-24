@@ -87,6 +87,14 @@ export class UsersService {
     dto: CreateUserDto,
     actor: AuthUser,
   ): Promise<{ user: UserResponse; temporaryPassword: string }> {
+    return this.prisma.$transaction((tx) => this.createIn(tx, dto, actor));
+  }
+
+  async createIn(
+    tx: Prisma.TransactionClient,
+    dto: CreateUserDto,
+    actor: AuthUser,
+  ) {
     const email = dto.email?.toLowerCase();
     const phone = dto.phone ? normalizePhone(dto.phone) : undefined;
     if (dto.phone && !phone)
@@ -94,10 +102,10 @@ export class UsersService {
     if (!email && !phone)
       throw new BadRequestException('Provide an email or a phone number');
 
-    await this.assertRolesAssignable(dto.roleIds, actor);
+    await this.assertRolesAssignable(dto.roleIds, actor, tx);
 
     const temporaryPassword = generateTemporaryPassword();
-    const row = await this.prisma.user.create({
+    const row = await tx.user.create({
       data: {
         fullName: dto.fullName,
         email,
@@ -109,7 +117,7 @@ export class UsersService {
       },
       select: USER_SELECT,
     });
-    await this.audit.record({
+    await this.audit.recordIn(tx, {
       actor,
       action: 'user.created',
       entityType: 'user',
@@ -326,9 +334,10 @@ export class UsersService {
   private async assertRolesAssignable(
     roleIds: string[],
     actor: AuthUser,
+    db: Pick<Prisma.TransactionClient, 'role'> = this.prisma,
   ): Promise<void> {
     const wanted = new Set(roleIds);
-    const roles = await this.prisma.role.findMany({
+    const roles = await db.role.findMany({
       where: { id: { in: [...wanted] } },
       select: {
         name: true,

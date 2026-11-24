@@ -1,4 +1,5 @@
 // src/app/dashboard/page.tsx
+import { AccountStatus } from "@/modules/dashboard/components/AccountStatus";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/core/session/server";
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Overview"
-        description="Select a module below or from the sidebar navigation."
+        description={modules.length ? "Select a module to open your workspace." : "Your account has no dashboard modules assigned. Contact your school administrator for access."}
       />
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(14rem,100%),1fr))] gap-4">
@@ -67,6 +68,7 @@ export default async function DashboardPage() {
           );
         })}
       </div>
+      <AccountStatus/>
     </>
   );
 }

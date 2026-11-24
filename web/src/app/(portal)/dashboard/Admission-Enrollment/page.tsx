@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { openFirstSection } from "@/core/session/server";
 
-export default function AdmissionEnrollmentIndexPage() {
-  redirect("/dashboard/Admission-Enrollment/overview");
+export default function Page() {
+  return openFirstSection("Admission-Enrollment");
 }

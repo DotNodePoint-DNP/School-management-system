@@ -54,6 +54,8 @@ export class InvoicesController {
     return this.invoices.list(query);
   }
 
+  @Get('invoices/:id')
+  @RequirePermissions('fees:read')
   get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
     return this.invoices.get(id, actor);
   }

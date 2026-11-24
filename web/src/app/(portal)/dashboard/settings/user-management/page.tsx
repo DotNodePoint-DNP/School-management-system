@@ -1,12 +1,8 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
-import { findModule } from "@/modules/dashboard/components/Navigation";
+import { requireDashboardPage } from "@/core/session/server";
 import UsersWorkspace from "@/modules/settings/components/UsersWorkspace";
 
 export default async function UserManagementPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
-  if (!findModule(user.permissions, "settings")) notFound();
+  const user = await requireDashboardPage("/dashboard/settings/user-management");
 
   return <UsersWorkspace permissions={user.permissions} />;
 }

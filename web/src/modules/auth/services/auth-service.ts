@@ -4,6 +4,7 @@ import type {
   ChangePasswordRequest,
 } from "@/lib/api/contracts";
 import {
+  ApiClientError,
   refreshApiSession,
   setApiAccessToken,
 } from "@/lib/api/client";
@@ -41,7 +42,7 @@ async function authRequest<T>(
         : Array.isArray(nestedError)
           ? nestedError.join(", ")
           : `Authentication request failed: ${response.status}`;
-    throw new Error(message);
+    throw new ApiClientError(response.status, message);
   }
   return payload as T;
 }
@@ -58,7 +59,7 @@ export async function signIn(input: LoginInput): Promise<LoginResult> {
 export async function refreshSession(): Promise<LoginResult> {
   const result = await refreshApiSession();
   if (!result) {
-    throw new Error("Your session has expired. Sign in again.");
+    throw new ApiClientError(401, "Your session has expired. Sign in again.");
   }
   return result;
 }
@@ -66,6 +67,20 @@ export async function refreshSession(): Promise<LoginResult> {
 export async function getAuthenticatedUser(): Promise<CurrentUser> {
   const result = await authRequest<{ user: CurrentUser }>("/api/auth/me");
   return result.user;
+}
+
+export async function saveProfile(fullName: string): Promise<CurrentUser> {
+  const update = () => authRequest<{ user: CurrentUser }>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({ fullName }),
+  });
+  try {
+    return (await update()).user;
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || error.status !== 401) throw error;
+    await refreshSession();
+    return (await update()).user;
+  }
 }
 
 export async function changePassword(

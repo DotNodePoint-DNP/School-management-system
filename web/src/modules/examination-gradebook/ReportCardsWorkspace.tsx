@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { RecordDisclosure } from "@/components/RecordDisclosure";
 import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import { ErrorBox, StatusBox } from "./ExamSetupWorkspace";
 import { listExamClasses, listExamYears, listExams } from "./services/exams";
 import {
   printReportCards,
+  getEnrollmentReportCard,
   type PrintReportCardsResponse,
 } from "./services/report-cards";
 
@@ -115,6 +117,7 @@ export default function ReportCardsWorkspace({
               const signatories = [...batch.signatories, ...(classTeacher ? [classTeacher] : [])];
               return (
                 <article className="mx-auto w-full max-w-[210mm] border border-line bg-white p-8 text-slate-900 shadow-sm print:break-after-page print:border-0 print:shadow-none" key={document.ref}>
+                  <RecordDisclosure label="Individual report record" queryKey={["report-card",document.enrollmentId,document.exam?.id,document.run.version]} load={()=>getEnrollmentReportCard(document.enrollmentId,document.exam?.id,document.run.version)}/>
                   <header className="flex items-center justify-between gap-5 border-b-2 border-teal pb-4">
                     {batch.assets.logo && <Image alt="" className="h-16 w-16 object-contain" height={64} src={batch.assets.logo} unoptimized width={64} />}
                     <div className="flex-1 text-center">

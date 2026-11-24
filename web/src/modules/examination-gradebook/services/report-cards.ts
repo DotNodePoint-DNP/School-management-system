@@ -100,6 +100,8 @@ export interface PrintReportCardData {
   remark: { text: string; updatedAt: string } | null;
 }
 
+export const getEnrollmentReportCard=(id:string, examId?:string, version?:number)=>client().get<PrintReportCardData>(`/enrollments/${encodeURIComponent(id)}/report-card?`+new URLSearchParams({...examId && {examId},...version && {version:String(version)}}));
+
 export async function printReportCards(
   input: PrintReportCardsInput,
 ): Promise<PrintReportCardsResponse> {

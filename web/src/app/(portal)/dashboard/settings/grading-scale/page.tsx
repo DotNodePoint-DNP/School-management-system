@@ -1,13 +1,8 @@
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/core/session/server";
-import { findModule } from "@/modules/dashboard/components/Navigation";
+import { requireDashboardPage } from "@/core/session/server";
 import GradingScaleBuilder from "@/modules/settings/components/GradingScaleBuilder";
 
 const GradingScale = async () => {
-  const user = await getCurrentUser();
-  if (!user) redirect("/auth");
-  if (!findModule(user.permissions, "settings")) notFound();
-  if (!user.permissions.includes("exams:read")) notFound();
+  const user = await requireDashboardPage("/dashboard/settings/grading-scale");
 
   return (
     <GradingScaleBuilder canManage={user.permissions.includes("exams:manage")} />

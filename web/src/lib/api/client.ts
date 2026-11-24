@@ -41,6 +41,8 @@ export class ApiClientError extends Error {
   }
 }
 
+export const accessDeniedEvent = "school:access-denied";
+
 let accessToken: string | null = null;
 let refreshInFlight: Promise<AuthLoginResponse | null> | null = null;
 
@@ -59,11 +61,14 @@ export function getApiBaseUrl(): string {
   }
 
   const url = new URL(configured);
+  const loopbackHosts = ["localhost", "127.0.0.1", "[::1]"];
+  const localPreview = loopbackHosts.includes(url.hostname) &&
+    (typeof window === "undefined" || loopbackHosts.includes(window.location.hostname));
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") ||
     url.username ||
     url.password ||
-    (process.env.NODE_ENV === "production" && url.protocol !== "https:")
+    (process.env.NODE_ENV === "production" && url.protocol !== "https:" && !localPreview)
   ) {
     throw new Error(
       "NEXT_PUBLIC_API_URL must be a valid HTTPS backend URL in production.",
@@ -116,6 +121,7 @@ export function createApiClient(baseUrl = getApiBaseUrl()): ApiClient {
       if (refreshed) return request<T>(path, options, true, responseType, unwrapEnvelope);
     }
     if (!response.ok) {
+      if (response.status === 403 && typeof window !== "undefined") window.dispatchEvent(new Event(accessDeniedEvent));
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
         error?: { message?: string | string[]; requestId?: string };
@@ -265,6 +271,7 @@ export function refreshApiSession(): Promise<AuthLoginResponse | null> {
     })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status !== 401) throw new ApiClientError(response.status, "Session refresh failed. Please retry.");
           setApiAccessToken(null);
           return null;
         }

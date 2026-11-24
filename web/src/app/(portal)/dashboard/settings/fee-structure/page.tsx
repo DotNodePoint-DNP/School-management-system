@@ -1,12 +1,4 @@
-import FeeHeadMaster from '@/modules/settings/components/FeeHeadmaster'
-import React from 'react'
-
-const FeeStructureSetup = () => {
-  return (
-    <div>
-        <FeeHeadMaster/>
-    </div>
-  )
+import { redirect } from "next/navigation";
+export default function FeeStructurePage() {
+  redirect("/dashboard/finance/fee-heads");
 }
-
-export default FeeStructureSetup

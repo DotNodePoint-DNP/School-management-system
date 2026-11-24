@@ -1,0 +1,204 @@
+enum WebsiteSection {
+  home
+  about
+  academics
+  facilities
+}
+
+model WebsiteEntry {
+  displayDate DateTime?      @map("display_date") @db.Date
+  id          String         @id @default(uuid(7)) @db.Uuid
+  section     WebsiteSection
+  slug        String?        @unique
+  title       String
+  subtitle    String?
+  body        String         @db.Text
+  imageUrl    String?        @map("image_url")
+  imageAlt    String?        @map("image_alt")
+  metadata    Json?
+  sortOrder   Int            @default(0) @map("sort_order")
+  published   Boolean        @default(false)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([section, published, sortOrder(sort: Asc), createdAt(sort: Asc)])
+  @@map("website_entries")
+}
+
+enum NoticeCategory {
+  general
+  exam
+  holiday
+  admission
+  result
+  event
+}
+
+model Notice {
+  imageAlt      String?        @map("image_alt")
+  id            String         @id @default(uuid(7)) @db.Uuid
+  slug          String         @unique
+  title         String
+  summary       String?
+  body          String         @db.Text
+  category      NoticeCategory @default(general)
+  attachmentUrl String?        @map("attachment_url")
+  imageUrl      String?        @map("image_url")
+  isPinned      Boolean        @default(false) @map("is_pinned")
+  published     Boolean        @default(false)
+  publishedAt   DateTime?      @map("published_at") @db.Timestamptz(6)
+  expiresAt     DateTime?      @map("expires_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([published, isPinned(sort: Desc), publishedAt(sort: Desc), createdAt(sort: Desc)])
+  @@index([category, published])
+  @@map("notices")
+}
+
+model WebsiteEvent {
+  imageAlt    String?   @map("image_alt")
+  id          String    @id @default(uuid(7)) @db.Uuid
+  slug        String    @unique
+  title       String
+  summary     String?
+  description String    @db.Text
+  venue       String?
+  coverImage  String?   @map("cover_image")
+  startsAt    DateTime  @map("starts_at") @db.Timestamptz(6)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(6)
+  isAllDay    Boolean   @default(false) @map("is_all_day")
+  isFeatured  Boolean   @default(false) @map("is_featured")
+  published   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([published, startsAt(sort: Asc)])
+  @@index([published, isFeatured(sort: Desc), startsAt(sort: Desc)])
+  @@map("website_events")
+}
+
+model GalleryAlbum {
+  imageAlt    String?   @map("image_alt")
+  id          String    @id @default(uuid(7)) @db.Uuid
+  slug        String    @unique
+  title       String
+  description String?
+  coverImage  String?   @map("cover_image")
+  eventDate   DateTime? @map("event_date") @db.Date
+  sortOrder   Int       @default(0) @map("sort_order")
+  published   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  photos GalleryPhoto[]
+
+  @@index([published, sortOrder(sort: Asc), eventDate(sort: Desc), createdAt(sort: Desc)])
+  @@map("gallery_albums")
+}
+
+model GalleryPhoto {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  albumId   String   @map("album_id") @db.Uuid
+  imageUrl  String   @map("image_url")
+  caption   String?
+  altText   String?  @map("alt_text")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  album GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId, sortOrder(sort: Asc), createdAt(sort: Asc)])
+  @@map("gallery_photos")
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  contract
+  internship
+}
+
+enum ApplicationStatus {
+  received
+  shortlisted
+  interviewed
+  offered
+  rejected
+}
+
+model CareerPosting {
+  imageUrl       String?        @map("image_url")
+  imageAlt       String?        @map("image_alt")
+  id             String         @id @default(uuid(7)) @db.Uuid
+  slug           String         @unique
+  title          String
+  department     String?
+  employmentType EmploymentType @default(full_time) @map("employment_type")
+  vacancies      Int            @default(1)
+  qualification  String?
+  experience     String?
+  description    String         @db.Text
+  deadline       DateTime?      @db.Date
+  published      Boolean        @default(false)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  applications JobApplication[]
+
+  @@index([published, deadline(sort: Asc), createdAt(sort: Desc)])
+  @@map("career_postings")
+}
+
+model JobApplication {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  postingId   String            @map("posting_id") @db.Uuid
+  fullName    String            @map("full_name")
+  email       String
+  phone       String
+  resumeUrl   String            @map("resume_url")
+  coverLetter String?           @map("cover_letter") @db.Text
+  status      ApplicationStatus @default(received)
+  notes       String?           @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  posting CareerPosting @relation(fields: [postingId], references: [id], onDelete: Cascade)
+
+  @@index([postingId, status, createdAt(sort: Desc)])
+  @@map("job_applications")
+}
+
+enum InquiryType {
+  general
+  admission
+  feedback
+  complaint
+}
+
+enum InquiryStatus {
+  unread
+  in_progress
+  resolved
+  spam
+}
+
+model ContactSubmission {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  type        InquiryType   @default(general)
+  fullName    String        @map("full_name")
+  email       String?
+  phone       String
+  subject     String?
+  message     String        @db.Text
+  studentName String?       @map("student_name")
+  targetGrade String?       @map("target_grade")
+  status      InquiryStatus @default(unread)
+  adminNotes  String?       @map("admin_notes") @db.Text
+  ipAddress   String?       @map("ip_address")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, type, createdAt(sort: Desc)])
+  @@map("contact_submissions")
+}

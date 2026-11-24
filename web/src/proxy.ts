@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
-  if (isDashboardRoute) {
+  if (isDashboardRoute || request.nextUrl.pathname === "/me") {
     const user = await verifySession(request.cookies.get(sessionCookieName)?.value);
     if (!user) {
       const url = new URL("/auth", request.url);
@@ -28,8 +28,8 @@ export async function proxy(request: NextRequest) {
         new URL("/auth/change-password", request.url),
       );
     }
-    if (!hasDashboardAccess(request.nextUrl.pathname, user.permissions)) {
-      return NextResponse.redirect(new URL("/auth", request.url));
+    if (isDashboardRoute && !hasDashboardAccess(request.nextUrl.pathname, user.permissions)) {
+      return NextResponse.rewrite(new URL("/dashboard/access-denied", request.url), {status:403});
     }
   }
 
@@ -37,5 +37,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/"],
+  matcher: ["/dashboard/:path*", "/me", "/"],
 };

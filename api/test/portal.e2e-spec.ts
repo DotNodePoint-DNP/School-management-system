@@ -549,6 +549,7 @@ describe('Parent portal (e2e)', () => {
   }) => {
     if (blocked) skip();
     const paths = (id: string) => [
+      `/portal/children/${id}/photo`,
       `/portal/children/${id}`,
       `/portal/children/${id}/attendance`,
       `/portal/children/${id}/results`,

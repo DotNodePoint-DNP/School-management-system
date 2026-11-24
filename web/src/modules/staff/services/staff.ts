@@ -47,7 +47,8 @@ export interface StaffInput {
   staffNo?: string;
 }
 
-export type StaffUpdateInput = Partial<StaffInput>;
+type ClearableStaffField = "dateOfBirth" | "phone" | "email" | "designation" | "middleName" | "fullNameNp" | "address";
+export type StaffUpdateInput = Partial<Omit<StaffInput, ClearableStaffField>> & Partial<Record<ClearableStaffField, string | null>>;
 
 export interface StaffLeaveInput {
   leftOn?: string;
@@ -129,4 +130,8 @@ export async function deleteStaff(
   id: string,
 ): Promise<{ deleted: true }> {
   return createApiClient().delete<{ deleted: true }>(staffPath(id));
+}
+
+export function linkStaffLogin(id: string, userId: string) {
+  return createApiClient().put<StaffDetails>(`${staffPath(id)}/login/${encodeURIComponent(userId)}`, {});
 }

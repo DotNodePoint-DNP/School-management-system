@@ -7,6 +7,7 @@ export interface UserRecord {
   email: string | null;
   phone: string | null;
   isActive: boolean;
+  staff: { staffNo: string } | null;
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string;

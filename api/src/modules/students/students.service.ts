@@ -23,6 +23,7 @@ import { normalizePhone } from '../../common/utils/identifier.js';
 import { displayName } from '../../common/utils/person.js';
 import { nextSequence } from '../../common/utils/sequence.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { StorageService } from '../../infra/storage/storage.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit-logs/audit.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -86,6 +87,7 @@ const DETAIL_SELECT = {
       relationship: true,
       isPrimary: true,
       isEmergencyContact: true,
+      portalAccess: true,
       guardian: {
         select: {
           id: true,
@@ -140,6 +142,7 @@ export interface StudentDetail extends StudentListItem {
     relationship: string;
     isPrimary: boolean;
     isEmergencyContact: boolean;
+    portalAccess: boolean;
     phone: string | null;
     email: string | null;
     hasLogin: boolean;
@@ -189,6 +192,7 @@ function toDetail(r: DetailRow): StudentDetail {
       relationship: g.relationship,
       isPrimary: g.isPrimary,
       isEmergencyContact: g.isEmergencyContact,
+      portalAccess: g.portalAccess,
       phone: g.guardian.phone,
       email: g.guardian.email,
       hasLogin: g.guardian.userId !== null,
@@ -212,6 +216,7 @@ interface PreparedGuardian {
   isPrimary: boolean;
   isEmergencyContact: boolean;
   createLogin: boolean;
+  portalAccess: boolean;
 }
 
 interface ResolvedLink {
@@ -220,6 +225,7 @@ interface ResolvedLink {
   isPrimary: boolean;
   isEmergencyContact: boolean;
   createLogin: boolean;
+  portalAccess: boolean;
 }
 
 @Injectable()
@@ -233,6 +239,7 @@ export class StudentsService {
     private readonly accounts: ParentAccountsService,
     private readonly enrollments: EnrollmentsService,
     private readonly school: SchoolService,
+    private readonly storage: StorageService,
   ) {}
 
   async list(
@@ -338,6 +345,9 @@ export class StudentsService {
       throw new BadRequestException(
         'The admission date is outside the supported Bikram Sambat range',
       );
+    if (dto.guardians.some(link => link.portalAccess === false) && !actor.permissions.includes('guardians:manage')) {
+      throw new ForbiddenException('Managing guardian access requires guardians:manage');
+    }
     const prepared = this.prepareGuardians(dto.guardians);
     let placed: EnrollmentRow | null = null;
     const { studentId, links } = await this.prisma.$transaction(async (tx) => {
@@ -363,6 +373,7 @@ export class StudentsService {
               relationship: l.relationship,
               isPrimary: l.isPrimary,
               isEmergencyContact: l.isEmergencyContact,
+              portalAccess: l.portalAccess,
             })),
           },
         },
@@ -570,11 +581,11 @@ export class StudentsService {
   }
 
   async remove(id: string, actor: AuthUser): Promise<void> {
-    const admissionNo = await this.prisma.$transaction(async (tx) => {
+    const deleted = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM students WHERE id = ${id}::uuid FOR UPDATE`;
       const student = await tx.student.findUnique({
         where: { id },
-        select: { admissionNo: true },
+        select: { admissionNo: true, documents: { select: { storageKey: true } } },
       });
       if (!student) throw new NotFoundException('Student not found');
       const enrolments = await tx.enrollment.count({
@@ -585,14 +596,18 @@ export class StudentsService {
           'This student has enrollment history. Change their status instead of deleting them.',
         );
       await tx.student.delete({ where: { id } });
-      return student.admissionNo;
+      return student;
     }, TX);
+    for (const document of deleted.documents) {
+      try { await this.storage.delete(document.storageKey); }
+      catch { this.logger.error(`Could not remove stored file ${document.storageKey} after student deletion`); }
+    }
     await this.audit.record({
       actor,
       action: 'student.deleted',
       entityType: 'student',
       entityId: id,
-      details: { admissionNo },
+      details: { admissionNo: deleted.admissionNo },
     });
   }
 
@@ -678,7 +693,8 @@ export class StudentsService {
         relationship: input.relationship,
         isPrimary: primaries === 0 ? index === 0 : input.isPrimary === true,
         isEmergencyContact: input.isEmergencyContact === true,
-        createLogin: input.createLogin !== false,
+        createLogin: input.createLogin !== false && input.portalAccess !== false,
+        portalAccess: input.portalAccess !== false,
       };
 
       if (input.guardianId) {
@@ -762,6 +778,7 @@ export class StudentsService {
         isPrimary: g.isPrimary,
         isEmergencyContact: g.isEmergencyContact,
         createLogin: g.createLogin,
+        portalAccess: g.portalAccess,
       });
     }
     if (!hasContact)

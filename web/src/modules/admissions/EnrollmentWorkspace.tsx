@@ -22,6 +22,7 @@ import {
 } from "@/modules/settings/services/academic-setup";
 import {
   assignSectionRollNumbers,
+  setEnrollmentRollNumber,
   deleteEnrollment,
   enrollStudent,
   getSectionOccupancy,
@@ -65,6 +66,7 @@ function rosterOrderKey(
 
 export default function EnrollmentWorkspace(props: Props) {
   const queryClient = useQueryClient();
+  const rollEdit=useMutation({mutationFn:({id,roll}:{id:string;roll:number})=>setEnrollmentRollNumber(id,roll),onSuccess:async()=>{await invalidateEnrollmentData();toast.success("Roll number updated.");},onError:(e)=>toast.error(e.message)});
   const [yearSelection, setYearSelection] = useState("");
   const [sectionSelection, setSectionSelection] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
@@ -332,6 +334,7 @@ export default function EnrollmentWorkspace(props: Props) {
                         sectionId={sectionId}
                         movePending={moveMutation.isPending}
                         removePending={deleteMutation.isPending}
+                        onRoll={roll=>rollEdit.mutate({id:student.enrollmentId,roll})}
                         onChoices={() => setChoicesEnrollment(student.enrollmentId)}
                         onMove={(destinationSectionId) => moveMutation.mutate({ enrollmentId: student.enrollmentId, destinationSectionId })}
                         onRemove={() => {
@@ -372,6 +375,7 @@ function EnrollmentRow({
   sectionId,
   movePending,
   removePending,
+  onRoll,
   onChoices,
   onMove,
   onRemove,
@@ -389,6 +393,7 @@ function EnrollmentRow({
   sectionId: string;
   movePending: boolean;
   removePending: boolean;
+  onRoll: (roll:number)=>void;
   onChoices: () => void;
   onMove: (sectionId: string) => void;
   onRemove: () => void;
@@ -403,6 +408,7 @@ function EnrollmentRow({
         <span className="inline-flex items-center gap-2 text-sm font-semibold">
           {canManage && <span className="flex flex-col"><button aria-label={`Move ${student.name} up`} className="rounded p-0.5 text-muted hover:bg-background disabled:opacity-25" disabled={!canManageOperations || !canMoveUp} onClick={onUp} type="button"><ArrowUp className="h-3 w-3" /></button><button aria-label={`Move ${student.name} down`} className="rounded p-0.5 text-muted hover:bg-background disabled:opacity-25" disabled={!canManageOperations || !canMoveDown} onClick={onDown} type="button"><ArrowDown className="h-3 w-3" /></button></span>}
           {rollOrderChanged ? orderNumber : student.rollNo ?? orderNumber}
+          {canManage && canManageOperations && <details><summary className="cursor-pointer text-xs text-teal">Edit</summary><form onSubmit={e=>{e.preventDefault();onRoll(Number(new FormData(e.currentTarget).get("roll")));}}><input aria-label={"Roll number for "+student.name} name="roll" type="number" required min={1} max={999} defaultValue={student.rollNo??orderNumber} className="w-16 rounded border border-line p-1"/><button className="px-2 text-xs">Save</button></form></details>}
         </span>
       </td>
       <td className="px-4 py-3"><p className="text-sm font-semibold">{student.name}</p>{student.fullNameNp && <p className="text-xs text-muted">{student.fullNameNp}</p>}</td>

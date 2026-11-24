@@ -124,6 +124,7 @@ describe('Staff and teaching assignments (e2e)', () => {
       ['staff', 'read'],
       ['staff', 'manage'],
       ['staff', 'create-login'],
+      ['users', 'read'],
       ['teaching', 'read'],
       ['teaching', 'assign'],
       ['classes', 'manage'],
@@ -192,6 +193,51 @@ describe('Staff and teaching assignments (e2e)', () => {
     await prisma.classSubject.create({
       data: { academicYearId: yearId, classId, subjectId },
     });
+  });
+
+  it('links an existing active account exactly once and preserves its credentials and roles', async () => {
+    const adminRole = await prisma.role.findUniqueOrThrow({
+      where: { name: 'ADMIN' },
+    });
+    await prisma.user.create({
+      data: {
+        fullName: 'E2E Link Administrator',
+        email: email('link-admin'),
+        passwordHash: await hashPassword(PASSWORD),
+        roles: { create: { roleId: adminRole.id } },
+      },
+    });
+    const token = (await loginAs(email('link-admin'), PASSWORD)).body.data
+      .accessToken as string;
+    const original = await prisma.user.findUniqueOrThrow({
+      where: { email: email('plain') },
+      include: { roles: true },
+    });
+    const first = (await post('/staff', newStaff('LinkFirst')).expect(201)).body
+      .data;
+    const second = (await post('/staff', newStaff('LinkSecond')).expect(201))
+      .body.data;
+    const link = (id: string, actor = token) =>
+      put('/staff/' + id + '/login/' + original.id, {}, actor);
+    await link(first.id, managerToken).expect(403);
+    const results = await Promise.all([link(first.id), link(second.id)]);
+    expect(results.map((result) => result.status).sort()).toEqual([200, 409]);
+    const winner = results[0].status === 200 ? first : second;
+    await link(winner.id).expect(200);
+    const account = (await get('/users/' + original.id, token).expect(200)).body
+      .data;
+    expect(account.staff.staffNo).toBe(winner.staffNo);
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: original.id },
+      include: { roles: true },
+    });
+    expect(after.roles).toEqual(original.roles);
+    expect(after.passwordHash).toBe(original.passwordHash);
+    expect(
+      await prisma.auditLog.count({
+        where: { entityId: winner.id, action: 'staff.login_linked' },
+      }),
+    ).toBe(1);
   });
 
   afterAll(async () => {
@@ -283,6 +329,9 @@ describe('Staff and teaching assignments (e2e)', () => {
       designation: 'Senior Teacher',
     }).expect(200);
     expect(res.body.data.designation).toBe('Senior Teacher');
+    const cleared = await patch(`/staff/${teacherId}`, { designation: null }).expect(200);
+    expect(cleared.body.data.designation).toBeNull();
+    expect(cleared.body.data.staffNo).toBe(res.body.data.staffNo);
   });
 
   it('creates a login for staff and the teacher can use it', async () => {
@@ -406,7 +455,9 @@ describe('Staff and teaching assignments (e2e)', () => {
         })
       ).isActive,
     ).toBe(false);
-    expect((await loginAs(email('teacher'), 'another-long-password')).status).toBe(401);
+    expect(
+      (await loginAs(email('teacher'), 'another-long-password')).status,
+    ).toBe(401);
 
     await put(urlFor(classTeacherUrl), { staffId: teacherId }).expect(409); // has left
 

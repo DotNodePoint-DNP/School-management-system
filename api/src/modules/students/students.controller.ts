@@ -1,4 +1,9 @@
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { StudentDocumentType } from '../../generated/prisma/enums.js';
+import { MAX_DOCUMENT_BYTES, StudentDocumentsService } from './student-documents.service.js';
 import {
+  ParseEnumPipe, Res, UploadedFile, UseInterceptors,
   Body,
   Controller,
   Delete,
@@ -35,6 +40,7 @@ import { ChangeStudentStatusDto } from './dto/change-student-status.dto.js';
 export class StudentsController {
   constructor(
     private readonly students: StudentsService,
+    private readonly documents: StudentDocumentsService,
     private readonly lifecycle: StudentLifecycleService,
   ) {}
 
@@ -52,6 +58,36 @@ export class StudentsController {
     @CurrentUser() actor: AuthUser,
   ): Promise<StudentDetail> {
     return this.students.get(id, actor);
+  }
+
+  @Get(':id/documents')
+  @RequirePermissions('students:read-all')
+  listDocuments(@Param('id', ParseUUIDPipe) id: string) {
+    return this.documents.list(id);
+  }
+
+  @Post(':id/documents/:type')
+  @RequirePermissions('students:update', 'students:read-all')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1 } }))
+  async uploadDocument(@Param('id', ParseUUIDPipe) id: string, @Param('type', new ParseEnumPipe(StudentDocumentType)) type: StudentDocumentType, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() actor: AuthUser) {
+    await this.students.get(id, actor);
+    return this.documents.upload(id, type, actor, file);
+  }
+
+  @Get(':id/documents/:documentId')
+  @RequirePermissions('students:read-all')
+  async download(@Param('id', ParseUUIDPipe) id: string, @Param('documentId', ParseUUIDPipe) documentId: string, @Res() res: Response) {
+    const file = await this.documents.file(id, documentId);
+    res.set({ 'Content-Type': file.mimeType, 'Content-Disposition': 'attachment', 'Cache-Control': 'private, no-store' }).send(file.body);
+  }
+
+  @Get(':id/photo')
+  async photo(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser, @Res() res: Response) {
+    await this.students.get(id, actor);
+    const photo = await this.documents.photo(id);
+    res.set('Cache-Control', 'private, no-store');
+    if (!photo) { res.status(204).end(); return; }
+    res.type(photo.mimeType).send(photo.body);
   }
 
   @Post()

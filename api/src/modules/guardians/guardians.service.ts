@@ -43,6 +43,7 @@ const DETAIL_SELECT = {
     select: {
       relationship: true,
       isPrimary: true,
+      portalAccess: true,
       student: {
         select: {
           id: true,
@@ -80,6 +81,7 @@ export interface GuardianDetail extends GuardianSummary {
     name: string;
     relationship: string;
     isPrimary: boolean;
+      portalAccess: boolean;
   }[];
 }
 
@@ -105,6 +107,7 @@ const toDetail = (r: DetailRow): GuardianDetail => ({
     name: displayName(s.student),
     relationship: s.relationship,
     isPrimary: s.isPrimary,
+      portalAccess: s.portalAccess,
   })),
 });
 
