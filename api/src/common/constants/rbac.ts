@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   'staff:read',
   'staff:manage',
   'staff:create-login',
+  'staff-attendance:review',
   'teaching:read',
   'teaching:assign',
 
@@ -114,4 +115,5 @@ export const PERMISSIONS = [
   'portal:access',
   'exams:release',
 ] as const;
-export type Permission = (typeof PERMISSIONS)[number];
+// Staff self-service follows the active staff-account link, including custom roles.
+export type Permission = (typeof PERMISSIONS)[number] | 'staff-attendance:self';

@@ -27,22 +27,17 @@ async function main(): Promise<void> {
   try {
     await prisma.$transaction(
       async (tx) => {
-        for (const code of PERMISSIONS) {
-          const [module, action] = code.split(':') as [string, string];
-          await tx.permission.upsert({
-            where: { module_action: { module, action } },
-            update: {},
-            create: { module, action },
-          });
-        }
-
-        for (const name of SYSTEM_ROLES) {
-          await tx.role.upsert({
-            where: { name },
-            update: {},
-            create: { name, isSystem: true },
-          });
-        }
+        await tx.permission.createMany({
+          data: PERMISSIONS.map((code) => {
+            const [module, action] = code.split(':');
+            return { module, action };
+          }),
+          skipDuplicates: true,
+        });
+        await tx.role.createMany({
+          data: SYSTEM_ROLES.map((name) => ({ name, isSystem: true })),
+          skipDuplicates: true,
+        });
 
         // ADMIN always holds every permission in the catalogue.
         const adminRole = await tx.role.findUniqueOrThrow({

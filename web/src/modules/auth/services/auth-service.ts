@@ -5,6 +5,7 @@ import type {
 } from "@/lib/api/contracts";
 import {
   ApiClientError,
+  readAuthJson,
   refreshApiSession,
   setApiAccessToken,
 } from "@/lib/api/client";
@@ -25,7 +26,7 @@ async function authRequest<T>(
       ...init.headers,
     },
   });
-  const payload: unknown = await response.json();
+  const payload = await readAuthJson(response);
   if (!response.ok) {
     const nestedError =
       payload &&
