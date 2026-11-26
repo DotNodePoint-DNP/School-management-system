@@ -46,6 +46,10 @@ model Staff {
   user                    User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
   attendancePunches       StaffPunch[]
   attendanceRequests      StaffAttendanceRequest[]
+  salaryRates             StaffSalaryRate[]
+  salaryAdvances          SalaryAdvance[]
+  payrollPreference       PayrollPreference?
+  payrollEntries          PayrollEntry[]
   classTeacherAssignments ClassTeacherAssignment[]
   teachingAssignments     TeachingAssignment[]
   signatureFileId         String?                  @map("signature_file_id") @db.Uuid

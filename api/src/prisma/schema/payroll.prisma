@@ -1,0 +1,130 @@
+model StaffSalaryRate {
+  id             String @id @default(uuid(7)) @db.Uuid
+  staffId        String @map("staff_id") @db.Uuid
+  effectiveMonth String @map("effective_month") @db.VarChar(7)
+  basicPaisa     Int @map("basic_paisa")
+  recordedBy     String @map("recorded_by") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  staff          Staff @relation(fields:[staffId], references:[id], onDelete:Restrict)
+  @@unique([staffId,effectiveMonth])
+  @@map("staff_salary_rates")
+}
+
+model PayrollPeriod {
+  id          String @id @default(uuid(7)) @db.Uuid
+  month       String @unique @db.VarChar(7)
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  finalizedAt DateTime? @map("finalized_at") @db.Timestamptz(6)
+  finalizedBy String? @map("finalized_by") @db.Uuid
+  entries     PayrollEntry[]
+  @@map("payroll_periods")
+}
+
+model PayrollEntry {
+  id          String @id @default(uuid(7)) @db.Uuid
+  periodId    String @map("period_id") @db.Uuid
+  period      PayrollPeriod @relation(fields:[periodId],references:[id],onDelete:Restrict)
+  staffId     String @map("staff_id") @db.Uuid
+  staff       Staff @relation(fields:[staffId],references:[id],onDelete:Restrict)
+  staffNo     String @map("staff_no")
+  name        String
+  designation String?
+  basicPaisa  Int? @map("basic_paisa")
+  partialMonth Boolean @map("partial_month")
+  reviewNote  String? @map("review_note")
+  revision    Int @default(0)
+  totalDays   Int? @map("total_days")
+  presentDays Int? @map("present_days")
+  leaveMode   PayrollLeaveMode @default(NONE) @map("leave_mode")
+  leaveOverridePaisa Int? @map("leave_override_paisa")
+  supplementalDraft Boolean @default(false) @map("supplemental_draft")
+  settledAdvances SalaryAdvance[]
+  adjustments PayrollAdjustment[]
+  payments    PayrollPayment[]
+  @@unique([periodId,staffId])
+  @@index([staffId])
+  @@map("payroll_entries")
+}
+
+enum PayrollAdjustmentKind {
+  ADDITION
+  DEDUCTION
+}
+
+model PayrollAdjustment {
+  id          String @id @default(uuid(7)) @db.Uuid
+  entryId     String @map("entry_id") @db.Uuid
+  entry       PayrollEntry @relation(fields:[entryId], references:[id],onDelete:Cascade)
+  kind        PayrollAdjustmentKind
+  label       String
+  reason      String
+  amountPaisa Int @map("amount_paisa")
+  advanceId   String? @map("advance_id") @db.Uuid
+  advance     SalaryAdvance? @relation(fields:[advanceId],references:[id],onDelete:Restrict)
+  deferred    Boolean @default(false)
+  @@unique([entryId, advanceId])
+  @@index([entryId])
+  @@map("payroll_adjustments")
+}
+
+enum PayrollPaymentMethod {
+  CASH
+  BANK
+  CHEQUE
+  OTHER
+  WALLET
+}
+
+model PayrollPayment {
+  id          String @id @default(uuid(7)) @db.Uuid
+  entryId     String @map("entry_id") @db.Uuid
+  entry       PayrollEntry @relation(fields:[entryId],references:[id],onDelete:Restrict)
+  requestId   String @unique @map("request_id") @db.Uuid
+  transferId  String? @map("transfer_id") @db.Uuid
+  @@unique([transferId,entryId])
+  amountPaisa Int @map("amount_paisa")
+  paidOn      DateTime @map("paid_on") @db.Date
+  method      PayrollPaymentMethod
+  reference   String?
+  recordedBy  String @map("recorded_by") @db.Uuid
+  recordedAt  DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  voidedBy    String? @map("voided_by") @db.Uuid
+  voidedAt    DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidReason  String? @map("void_reason")
+  @@index([entryId])
+  @@index([paidOn])
+  @@map("payroll_payments")
+}
+
+enum PayrollLeaveMode {
+  NONE
+  AUTO
+  OVERRIDE
+}
+
+model PayrollPreference {
+  staffId String @id @map("staff_id") @db.Uuid
+  staff Staff @relation(fields:[staffId],references:[id],onDelete:Cascade)
+  method PayrollPaymentMethod
+  accountRef String? @map("account_ref")
+  @@map("payroll_preferences")
+}
+
+model SalaryAdvance {
+  id String @id @default(uuid(7)) @db.Uuid
+  requestId String @unique @map("request_id") @db.Uuid
+  staffId String @map("staff_id") @db.Uuid
+  staff Staff @relation(fields:[staffId],references:[id],onDelete:Restrict)
+  issuedOn DateTime @map("issued_on") @db.Date
+  amountPaisa Int @map("amount_paisa")
+  note String
+  recordedBy String @map("recorded_by") @db.Uuid
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  settledEntryId String? @map("settled_entry_id") @db.Uuid
+  settledEntry PayrollEntry? @relation(fields:[settledEntryId],references:[id],onDelete:Restrict)
+  adjustments PayrollAdjustment[]
+  @@index([staffId,issuedOn])
+  @@index([settledEntryId])
+  @@map("salary_advances")
+}

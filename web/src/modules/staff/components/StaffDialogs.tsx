@@ -193,6 +193,7 @@ export function StaffFormDialog({
 }
 
 export function StaffDetailDialog({
+  canReadPayroll,
   staff,
   canManage,
   canCreateLogin,
@@ -214,6 +215,7 @@ export function StaffDetailDialog({
   onLeave: () => void;
   onReactivate: () => void;
   onCreateLogin: () => void;
+  canReadPayroll?: boolean;
   onLinkLogin?: () => void;
   onDelete: () => void;
 }) {
@@ -237,6 +239,7 @@ export function StaffDetailDialog({
           {staff.status === "LEFT" && <DetailItem label="Left on" value={staff.leftOn} />}
           {staff.statusNote && <DetailItem label="Departure note" value={staff.statusNote} wide />}
         </dl>
+        {canReadPayroll && <a className="font-semibold text-ink underline" href={"/dashboard/staff/payroll?staffId="+staff.id}>Salary setup</a>}
         {canCreateLogin && !canReadRoles && !staff.hasLogin && staff.status === "ACTIVE" && (
           <p className="rounded-lg border border-amber/40 bg-amber/10 p-3 text-xs text-muted">Role selection requires the roles-read permission. Ask an administrator to grant it before creating a login.</p>
         )}

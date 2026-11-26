@@ -33,6 +33,10 @@ export const PERMISSIONS = [
   'staff:manage',
   'staff:create-login',
   'staff-attendance:review',
+  'payroll:read',
+  'payroll:manage',
+  'payroll:record-payment',
+  'payroll:unlock',
   'teaching:read',
   'teaching:assign',
 
