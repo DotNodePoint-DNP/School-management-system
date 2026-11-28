@@ -15,6 +15,14 @@ describe("backend role and permission mapping", () => {
       .toEqual(["Staff", "Family Portal"]);
   });
 
+  it("lets issuing staff create and reprint documents while limiting template design to settings staff",()=>{
+    const rights=["documents:issue"];
+    expect(hasDashboardAccess("/dashboard/documents/create",rights)).toBe(true);
+    expect(hasDashboardAccess("/dashboard/documents/register",rights)).toBe(true);
+    expect(hasDashboardAccess("/dashboard/settings/document-template",rights)).toBe(false);
+    expect(hasDashboardAccess("/dashboard/documents/create",["documents:design"])).toBe(false);
+  });
+
   it("derives the workspace from backend roles, not user-selected input", () => {
     const user = currentUserFromApi({
       id: "admin-1",

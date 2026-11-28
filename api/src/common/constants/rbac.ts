@@ -77,6 +77,10 @@ export const PERMISSIONS = [
   'results:read-all',
 
   'school:manage',
+  'documents:design',
+  'documents:publish',
+  'documents:issue',
+  'documents:print-signed',
   'school:manage-signatories',
 
   'remarks:enter',

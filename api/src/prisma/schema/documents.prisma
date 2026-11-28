@@ -1,0 +1,63 @@
+model DocumentTemplate {
+  id       String            @id @default(uuid(7)) @db.Uuid
+  title    String
+  kind     String
+  revision Int               @default(1)
+  draft    Json
+  versions DocumentVersion[]
+
+  @@map("document_templates")
+}
+
+model DocumentVersion {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  templateId String           @map("template_id") @db.Uuid
+  revision   Int
+  title      String
+  layout     Json
+  template   DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  batches    DocumentBatch[]
+
+  @@unique([templateId, revision])
+  @@map("document_versions")
+}
+
+model DocumentArtwork {
+  id    String @id @default(uuid(7)) @db.Uuid
+  image Bytes
+
+  @@map("document_artwork")
+}
+
+model DocumentBatch {
+  id        String          @id @db.Uuid
+  versionId String          @map("version_id") @db.Uuid
+  actorId   String          @map("actor_id") @db.Uuid
+  digest    String
+  envelope  Json
+  version   DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  issues    DocumentIssue[]
+
+  @@map("document_batches")
+}
+
+model DocumentIssue {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  batchId      String         @map("batch_id") @db.Uuid
+  enrollmentId String?        @map("enrollment_id") @db.Uuid
+  serial       String         @unique
+  name         String
+  admissionNo  String         @map("admission_no")
+  snapshot     Json
+  replacesId   String?        @unique @map("replaces_id") @db.Uuid
+  replaces     DocumentIssue? @relation("Correction", fields: [replacesId], references: [id], onDelete: Restrict)
+  replacedBy   DocumentIssue? @relation("Correction")
+  reason       String?
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  batch        DocumentBatch  @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@index([admissionNo])
+  @@index([batchId])
+  @@index([createdAt(sort: Desc), serial])
+  @@map("document_issues")
+}

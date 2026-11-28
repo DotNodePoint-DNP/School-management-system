@@ -825,7 +825,7 @@ describe('Printing fee documents (e2e)', () => {
     ).body.data;
     expect(res.documents).toEqual([]);
     expect(
-      (await print('fee-vouchers', { studentIds: [stu.s4] }).expect(200)).body
+      (await print('fee-vouchers', { studentIds: [stu.s4] }).expect(200)).body.data
         .documents,
     ).toEqual([]); // s4 owes nothing
   });
