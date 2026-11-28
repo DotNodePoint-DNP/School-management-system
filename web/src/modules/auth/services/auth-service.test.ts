@@ -24,6 +24,15 @@ afterEach(() => {
 });
 
 describe("auth service", () => {
+  it.each([
+    [200, "", 502],
+    [500, "", 500],
+    [503, "<html>Unavailable</html>", 503],
+  ])("handles unreadable login responses (%i)", async (status, body, expected) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body as string, { status: Number(status) })));
+    await expect(signIn({ identifier: "staff@example.test", password: "test-password" }))
+      .rejects.toMatchObject({ status: expected, message: expect.stringContaining("Please try again") });
+  });
   it("sends credentials to the same-origin API route and stores the access token", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(session), {

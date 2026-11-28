@@ -10,6 +10,21 @@ import { getApiBaseUrl } from "./client";
 
 type ApiEnvelope<T> = { success: true; data: T };
 
+function invalidAuthResponse(response: Response): NextResponse {
+  const status = response.status >= 400 ? response.status : 502;
+  return NextResponse.json(
+    { success: false, error: { message: "The sign-in service returned an unreadable response. Please try again." } },
+    { status },
+  );
+}
+
+function authGatewayError(status: 503 | 504): NextResponse {
+  const message = status === 504
+    ? "The sign-in service took too long to respond. Please try again."
+    : "The sign-in service is temporarily unavailable. Please try again.";
+  return NextResponse.json({ success: false, error: { message } }, { status });
+}
+
 export function validIssuedSession(
   value: unknown,
 ): value is { accessToken: string; expiresIn: number; user: unknown } {
@@ -31,15 +46,25 @@ export async function requestBackend(
   path: string,
   init: RequestInit,
 ): Promise<Response> {
-  return fetch(`${getApiBaseUrl()}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(10_000),
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      ...init.headers,
-    },
-  });
+  const url = `${getApiBaseUrl()}${path}`;
+  const deadline = AbortSignal.timeout(path === "/auth/login" ? 30_000 : 10_000);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: deadline,
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        ...init.headers,
+      },
+    });
+  } catch (error) {
+    if (deadline.aborted || (error instanceof Error && error.name === "TimeoutError")) {
+      return authGatewayError(504);
+    }
+    if (error instanceof TypeError) return authGatewayError(503);
+    throw error;
+  }
 }
 
 export function sameOriginRequest(request: Request): boolean {
@@ -69,7 +94,18 @@ export async function readRequestJson(
 export async function readApiResponse<T>(
   response: Response,
 ): Promise<{ data: T } | { error: NextResponse }> {
-  const payload: unknown = await response.json();
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    // Fetch can resolve with headers before the deadline interrupts the body.
+    if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
+      return { error: authGatewayError(504) };
+    }
+    if (error instanceof TypeError) return { error: authGatewayError(503) };
+    if (error instanceof SyntaxError) return { error: invalidAuthResponse(response) };
+    throw error;
+  }
   if (!response.ok) {
     return {
       error: NextResponse.json(payload, { status: response.status }),
@@ -82,7 +118,7 @@ export async function readApiResponse<T>(
     payload.success !== true ||
     !("data" in payload)
   ) {
-    throw new Error("The backend returned an invalid API response.");
+    return { error: invalidAuthResponse(response) };
   }
   return { data: (payload as ApiEnvelope<T>).data };
 }
@@ -173,6 +209,24 @@ export async function setSessionCookie(
   };
 
   response.cookies.set(sessionCookieName, session, options);
+}
+
+export async function issuedSessionResponse(data: unknown, backend: Response) {
+  if (!validIssuedSession(data)) return invalidAuthResponse(backend);
+  const mapped = currentUserOrResponse(data.user);
+  if ("error" in mapped) return mapped.error;
+
+  const response = NextResponse.json({ ...data, user: mapped.user });
+  try {
+    await setAuthCookies(response, backend, data.user, data.accessToken);
+  } catch (error) {
+    console.error("Unable to establish the sign-in session.", error instanceof Error ? error.name : "Unknown error");
+    return NextResponse.json(
+      { success: false, error: { message: "The server could not start your session. Please try again." } },
+      { status: 500 },
+    );
+  }
+  return response;
 }
 
 export function clearAuthCookies(response: NextResponse): void {

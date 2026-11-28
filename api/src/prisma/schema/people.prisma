@@ -44,6 +44,8 @@ model Staff {
   updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user                    User?                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  attendancePunches       StaffPunch[]
+  attendanceRequests      StaffAttendanceRequest[]
   classTeacherAssignments ClassTeacherAssignment[]
   teachingAssignments     TeachingAssignment[]
   signatureFileId         String?                  @map("signature_file_id") @db.Uuid

@@ -81,6 +81,11 @@ const NAV_MODULES: NavModule[] = [
         permissions: ["staff:read", "staff:manage"],
       },
       {
+        slug: "attendance",
+        label: "Staff attendance & leave",
+        permissions: ["staff-attendance:self", "staff-attendance:review"],
+      },
+      {
         slug: "teacher-directory",
         label: "Teacher directory",
         href: "/dashboard/student-info/teacher-directory",

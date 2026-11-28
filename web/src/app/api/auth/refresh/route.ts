@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   clearAuthCookies,
-  currentUserOrResponse,
+  issuedSessionResponse,
   readApiResponse,
   refreshCookieHeader,
   requestBackend,
   sameOriginRequest,
-  setAuthCookies,
-  validIssuedSession,
 } from "@/lib/api/auth-server";
 import type { BackendAuthSession } from "@/lib/api/contracts";
 
@@ -37,22 +35,5 @@ export async function POST(request: Request) {
     if (backend.status === 401) clearAuthCookies(result.error);
     return result.error;
   }
-  if (!validIssuedSession(result.data)) {
-    throw new Error("The backend returned an invalid refreshed session.");
-  }
-
-  const mappedUser = currentUserOrResponse(result.data.user);
-  if ("error" in mappedUser) return mappedUser.error;
-
-  const response = NextResponse.json({
-    ...result.data,
-    user: mappedUser.user,
-  });
-  await setAuthCookies(
-    response,
-    backend,
-    result.data.user,
-    result.data.accessToken,
-  );
-  return response;
+  return issuedSessionResponse(result.data, backend);
 }

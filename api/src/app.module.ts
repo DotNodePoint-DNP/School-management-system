@@ -16,6 +16,7 @@ import { AcademicYearsModule } from './modules/academic-years/academic-years.mod
 import { ClassesModule } from './modules/classes/classes.module.js';
 import { SubjectsModule } from './modules/subjects/subjects.module.js';
 import { StaffModule } from './modules/staff/staff.module.js';
+import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendance.module.js';
 import { MessagingModule } from './infra/messaging/messaging.module.js';
 import { GuardiansModule } from './modules/guardians/guardians.module.js';
 import { StudentsModule } from './modules/students/students.module.js';
@@ -47,6 +48,7 @@ import { WebsiteModule } from './modules/website/website.module.js';
     ClassesModule,
     SubjectsModule,
     StaffModule,
+    StaffAttendanceModule,
     MessagingModule,
     GuardiansModule,
     StudentsModule,
