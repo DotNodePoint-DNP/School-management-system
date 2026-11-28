@@ -14,6 +14,7 @@ import {
   dateParts,
   isoToDate,
   resolveDate,
+  requireDate,
   todayIso,
   toIsoDate,
 } from '../../common/utils/bs-date.js';
@@ -41,8 +42,20 @@ const TX = { maxWait: 15_000, timeout: 60_000 } as const;
 
 export const formatReceiptNumber = (fiscalLabel: string, n: number): string =>
   `R-${fiscalLabel}-${String(n).padStart(6, '0')}`;
-const normaliseReference = (value: string): string =>
+export const normaliseReference = (value: string): string =>
   value.trim().replace(/\s+/g, ' ').toUpperCase();
+const electronicMethods = [
+  'BANK_TRANSFER',
+  'ESEWA',
+  'KHALTI',
+  'FONEPAY_QR',
+] as const;
+export function lockElectronicReference(
+  tx: Prisma.TransactionClient,
+  reference: string,
+) {
+  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'electronic_ref:' + normaliseReference(reference)}))`;
+}
 const STUDENT = {
   id: true,
   admissionNo: true,
@@ -154,6 +167,22 @@ export class PaymentsService {
     dto: RecordPaymentDto,
     actor: AuthUser,
   ): Promise<PaymentView & { duplicate: boolean }> {
+    if (dto.method === 'FONEPAY_QR')
+      throw new BadRequestException(
+        'Approve a verified QR claim in the QR payments queue',
+      );
+    const result = await this.prisma.$transaction(
+      (tx) => this.recordIn(tx, dto, actor),
+      TX,
+    );
+    return { ...(await this.get(result.id)), duplicate: result.duplicate };
+  }
+
+  async recordIn(
+    tx: Prisma.TransactionClient,
+    dto: RecordPaymentDto,
+    actor: AuthUser,
+  ) {
     const explicit = dto.allocations !== undefined;
     const auto = dto.autoAllocate !== undefined;
     if (explicit === auto)
@@ -193,252 +222,277 @@ export class PaymentsService {
       throw new BadRequestException(
         'The allocations add up to more than the payment',
       );
-    const fiscalYear = await this.fiscalYears.openFor(paidOn);
+    const fiscalYear = await this.fiscalYears.openFor(paidOn, tx);
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      // The same form sent twice (or at the same moment) returns the receipt already created.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment_key:${dto.idempotencyKey}`}))`;
-      const existing = await tx.payment.findUnique({
-        where: { idempotencyKey: dto.idempotencyKey },
-        select: {
-          id: true,
-          amount: true,
-          method: true,
-          reference: true,
-          receivedById: true,
-        },
-      });
-      if (existing) {
-        if (
-          toPaisa(existing.amount.toNumber()) !== amountPaisa ||
-          existing.method !== dto.method ||
-          existing.reference !== reference ||
-          existing.receivedById !== actor.id
-        ) {
-          throw new ConflictException(
-            'This request key was already used for a different payment. Use a new key for each payment.',
-          );
-        }
-        return { id: existing.id, duplicate: true };
-      }
-
-      await this.fiscalYears.lockOpen(tx, fiscalYear.id);
-      await this.days.assertOpen(tx, paidOn);
-      if (reference) {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payref:${dto.method}:${reference}`}))`;
-        const used = await tx.payment.findFirst({
-          where: { method: dto.method, reference, reversal: { is: null } },
-          select: { receiptNo: true },
-        });
-        if (used)
-          throw new ConflictException(
-            `This ${dto.method.toLowerCase().replace('_', ' ')} reference was already recorded on receipt ${used.receiptNo}`,
-          );
-      }
-
-      // Lock every invoice that could be paid, in a fixed order, and only then read what is owed.
-      let invoiceIds: string[];
-      if (auto) {
-        const studentIds = dto.autoAllocate?.studentIds ?? [];
-        if (
-          (await tx.student.count({ where: { id: { in: studentIds } } })) !==
-          studentIds.length
-        )
-          throw new NotFoundException('Some of those students do not exist');
-        invoiceIds = (
-          await tx.invoice.findMany({
-            where: { studentId: { in: studentIds }, void: { is: null } },
-            select: { id: true },
-          })
-        ).map((i) => i.id);
-      } else {
-        invoiceIds = given.map((a) => a.invoiceId);
-      }
-      const sorted = [...invoiceIds].sort();
-      if (sorted.length > 0) {
-        await tx.$queryRaw`SELECT id FROM invoices WHERE id IN (${Prisma.join(sorted.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY id FOR UPDATE`;
-      }
-      const invoices = await tx.invoice.findMany({
-        where: { id: { in: invoiceIds } },
-        select: {
-          id: true,
-          number: true,
-          studentId: true,
-          issuedOn: true,
-          dueDate: true,
-          void: { select: { invoiceId: true } },
-        },
-      });
-      const invoiceBy = new Map(invoices.map((i) => [i.id, i] as const));
-      const balances = await this.balances.load(invoiceIds, tx);
-      const owed = (id: string): number =>
-        (balances.get(id) as Balance).outstandingPaisa;
-
-      const planned: {
-        invoiceId: string;
-        studentId: string;
-        amountPaisa: number;
-      }[] = [];
-      if (auto) {
-        const eligible = invoices
-          .filter(
-            (i) =>
-              i.void === null &&
-              toIsoDate(i.issuedOn) <= paidOn &&
-              owed(i.id) > 0,
-          )
-          .sort(
-            (a, b) =>
-              a.dueDate.getTime() - b.dueDate.getTime() ||
-              a.issuedOn.getTime() - b.issuedOn.getTime() ||
-              a.number.localeCompare(b.number),
-          );
-        let left = amountPaisa;
-        for (const inv of eligible) {
-          if (left === 0) break;
-          const take = Math.min(left, owed(inv.id));
-          planned.push({
-            invoiceId: inv.id,
-            studentId: inv.studentId,
-            amountPaisa: take,
-          });
-          left -= take;
-        }
-      } else {
-        for (const a of given) {
-          const inv = invoiceBy.get(a.invoiceId);
-          if (!inv)
-            throw new NotFoundException('One of those invoices does not exist');
-          if (inv.void)
-            throw new ConflictException(
-              `Invoice ${inv.number} is void and cannot be paid`,
-            );
-          if (toIsoDate(inv.issuedOn) > paidOn)
-            throw new ConflictException(
-              `Invoice ${inv.number} was issued after the payment date, so this payment cannot be applied to it`,
-            );
-          if (toPaisa(a.amount) > owed(inv.id))
-            throw new ConflictException(
-              `Invoice ${inv.number}: NPR ${a.amount} is more than the NPR ${fromPaisa(owed(inv.id))} still owed`,
-            );
-          planned.push({
-            invoiceId: inv.id,
-            studentId: inv.studentId,
-            amountPaisa: toPaisa(a.amount),
-          });
-        }
-      }
-
-      // Anything not applied to an invoice is refused, unless the cashier explicitly keeps it as advance credit.
-      const remainder =
-        amountPaisa - planned.reduce((n, p) => n + p.amountPaisa, 0);
-      let creditStudentId: string | null = null;
-      if (remainder > 0) {
-        if (!dto.keepExcessAsCredit) {
-          throw new ConflictException(
-            auto
-              ? `NPR ${fromPaisa(remainder)} is more than these students owe. Reduce the amount, or keep the excess as advance credit.`
-              : `NPR ${fromPaisa(remainder)} of this payment is not applied to any invoice. Apply it, or keep it as advance credit.`,
-          );
-        }
-        const wanted = dto.keepExcessAsCredit.studentId;
-        const allowed = auto
-          ? new Set(dto.autoAllocate?.studentIds)
-          : planned.length > 0
-            ? new Set(planned.map((p) => p.studentId))
-            : null;
-        if (allowed && !allowed.has(wanted))
-          throw new BadRequestException(
-            'Advance credit must be held for one of the students being paid for',
-          );
-        const holder = await tx.student.findUnique({
-          where: { id: wanted },
-          select: { status: true },
-        });
-        if (!holder)
-          throw new BadRequestException('That student does not exist');
-        if (holder.status !== 'ACTIVE')
-          throw new ConflictException(
-            'Advance credit can only be held for a student who is still in the school',
-          );
-        creditStudentId = wanted;
-      } else if (dto.keepExcessAsCredit) {
-        throw new BadRequestException(
-          'There is no excess to keep as advance credit',
+    // The same form sent twice (or at the same moment) returns the receipt already created.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment_key:${dto.idempotencyKey}`}))`;
+    const existing = await tx.payment.findUnique({
+      where: { idempotencyKey: dto.idempotencyKey },
+      select: {
+        id: true,
+        amount: true,
+        method: true,
+        reference: true,
+        receivedById: true,
+      },
+    });
+    if (existing) {
+      if (
+        toPaisa(existing.amount.toNumber()) !== amountPaisa ||
+        existing.method !== dto.method ||
+        existing.reference !== reference ||
+        existing.receivedById !== actor.id
+      ) {
+        throw new ConflictException(
+          'This request key was already used for a different payment. Use a new key for each payment.',
         );
       }
+      return { id: existing.id, duplicate: true };
+    }
 
-      if (dto.payerGuardianId) {
-        const involved = [
-          ...new Set([
-            ...planned.map((p) => p.studentId),
-            ...(creditStudentId ? [creditStudentId] : []),
-          ]),
-        ];
-        const linked = await tx.studentGuardian.count({
-          where: {
-            guardianId: dto.payerGuardianId,
-            studentId: { in: involved },
-          },
-        });
-        if (linked === 0)
-          throw new BadRequestException(
-            'That guardian is not linked to any student being paid for',
+    await this.fiscalYears.lockOpen(tx, fiscalYear.id);
+    await this.days.assertOpen(tx, paidOn);
+    if (reference) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payref:${dto.method}:${reference}`}))`;
+      const electronic = dto.method !== 'CHEQUE' && dto.method !== 'CASH';
+      if (electronic) {
+        await lockElectronicReference(tx, reference);
+        if (
+          dto.method !== 'FONEPAY_QR' &&
+          (await tx.qrClaimEvent.findFirst({
+            where: {
+              reference,
+              claim: { status: { in: ['PENDING', 'CLARIFICATION'] } },
+            },
+            select: { id: true },
+          }))
+        )
+          throw new ConflictException(
+            'This reference is awaiting QR verification. Review the claim before posting.',
           );
       }
-
-      const id = randomUUID();
-      const receiptNo = formatReceiptNumber(
-        fiscalYear.label,
-        await reserveSequence(tx, `receipt:${fiscalYear.id}`, 1),
-      );
-      await tx.payment.create({
-        data: {
-          id,
-          receiptNo,
-          fiscalYearId: fiscalYear.id,
-          paidOn: isoToDate(paidOn),
-          method: dto.method,
+      const methods =
+        dto.method === 'FONEPAY_QR'
+          ? [...electronicMethods]
+          : electronic
+            ? [dto.method, 'FONEPAY_QR' as const]
+            : [dto.method];
+      const used = await tx.payment.findFirst({
+        where: {
           reference,
-          amount: dto.amount,
-          payerGuardianId: dto.payerGuardianId,
-          payerName: dto.payerName,
-          creditStudentId,
-          receivedById: actor.id,
-          idempotencyKey: dto.idempotencyKey,
-          note: dto.note,
+          reversal: { is: null },
+          OR: [
+            { method: { in: methods } },
+            ...(electronic ? [{ qrClaim: { isNot: null } }] : []),
+          ],
         },
+        select: { receiptNo: true },
       });
-      if (planned.length > 0) {
-        await tx.paymentAllocation.createMany({
-          data: [...planned]
-            .sort((a, b) => a.invoiceId.localeCompare(b.invoiceId))
-            .map((p) => ({
-              paymentId: id,
-              invoiceId: p.invoiceId,
-              amount: fromPaisa(p.amountPaisa),
-              allocatedById: actor.id,
-            })),
+      if (used)
+        throw new ConflictException(
+          `This ${dto.method.toLowerCase().replace('_', ' ')} reference was already recorded on receipt ${used.receiptNo}`,
+        );
+    }
+
+    // Lock every invoice that could be paid, in a fixed order, and only then read what is owed.
+    let invoiceIds: string[];
+    if (auto) {
+      const studentIds = dto.autoAllocate?.studentIds ?? [];
+      if (
+        (await tx.student.count({ where: { id: { in: studentIds } } })) !==
+        studentIds.length
+      )
+        throw new NotFoundException('Some of those students do not exist');
+      invoiceIds = (
+        await tx.invoice.findMany({
+          where: { studentId: { in: studentIds }, void: { is: null } },
+          select: { id: true },
+        })
+      ).map((i) => i.id);
+    } else {
+      invoiceIds = given.map((a) => a.invoiceId);
+    }
+    const sorted = [...invoiceIds].sort();
+    if (sorted.length > 0) {
+      await tx.$queryRaw`SELECT id FROM invoices WHERE id IN (${Prisma.join(sorted.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY id FOR UPDATE`;
+    }
+    const invoices = await tx.invoice.findMany({
+      where: { id: { in: invoiceIds } },
+      select: {
+        id: true,
+        number: true,
+        studentId: true,
+        issuedOn: true,
+        dueDate: true,
+        void: { select: { invoiceId: true } },
+      },
+    });
+    const invoiceBy = new Map(invoices.map((i) => [i.id, i] as const));
+    const balances = await this.balances.load(invoiceIds, tx);
+    const owed = (id: string): number =>
+      (balances.get(id) as Balance).outstandingPaisa;
+
+    const planned: {
+      invoiceId: string;
+      studentId: string;
+      amountPaisa: number;
+    }[] = [];
+    if (auto) {
+      const eligible = invoices
+        .filter(
+          (i) =>
+            i.void === null &&
+            toIsoDate(i.issuedOn) <= paidOn &&
+            owed(i.id) > 0,
+        )
+        .sort(
+          (a, b) =>
+            a.dueDate.getTime() - b.dueDate.getTime() ||
+            a.issuedOn.getTime() - b.issuedOn.getTime() ||
+            a.number.localeCompare(b.number),
+        );
+      let left = amountPaisa;
+      for (const inv of eligible) {
+        if (left === 0) break;
+        const take = Math.min(left, owed(inv.id));
+        planned.push({
+          invoiceId: inv.id,
+          studentId: inv.studentId,
+          amountPaisa: take,
+        });
+        left -= take;
+      }
+    } else {
+      for (const a of given) {
+        const inv = invoiceBy.get(a.invoiceId);
+        if (!inv)
+          throw new NotFoundException('One of those invoices does not exist');
+        if (inv.void)
+          throw new ConflictException(
+            `Invoice ${inv.number} is void and cannot be paid`,
+          );
+        if (toIsoDate(inv.issuedOn) > paidOn)
+          throw new ConflictException(
+            `Invoice ${inv.number} was issued after the payment date, so this payment cannot be applied to it`,
+          );
+        if (toPaisa(a.amount) > owed(inv.id))
+          throw new ConflictException(
+            `Invoice ${inv.number}: NPR ${a.amount} is more than the NPR ${fromPaisa(owed(inv.id))} still owed`,
+          );
+        planned.push({
+          invoiceId: inv.id,
+          studentId: inv.studentId,
+          amountPaisa: toPaisa(a.amount),
         });
       }
-      // Numbers only: no names, references or notes in the audit log.
-      await this.audit.recordIn(tx, {
-        actor,
-        action: 'payment.recorded',
-        entityType: 'payment',
-        entityId: id,
-        details: {
-          receiptNo,
-          method: dto.method,
-          amount: dto.amount,
-          invoices: planned.length,
-          credit: fromPaisa(remainder),
+    }
+
+    // Anything not applied to an invoice is refused, unless the cashier explicitly keeps it as advance credit.
+    const remainder =
+      amountPaisa - planned.reduce((n, p) => n + p.amountPaisa, 0);
+    let creditStudentId: string | null = null;
+    if (remainder > 0) {
+      if (!dto.keepExcessAsCredit) {
+        throw new ConflictException(
+          auto
+            ? `NPR ${fromPaisa(remainder)} is more than these students owe. Reduce the amount, or keep the excess as advance credit.`
+            : `NPR ${fromPaisa(remainder)} of this payment is not applied to any invoice. Apply it, or keep it as advance credit.`,
+        );
+      }
+      const wanted = dto.keepExcessAsCredit.studentId;
+      const allowed = auto
+        ? new Set(dto.autoAllocate?.studentIds)
+        : planned.length > 0
+          ? new Set(planned.map((p) => p.studentId))
+          : null;
+      if (allowed && !allowed.has(wanted))
+        throw new BadRequestException(
+          'Advance credit must be held for one of the students being paid for',
+        );
+      const holder = await tx.student.findUnique({
+        where: { id: wanted },
+        select: { status: true },
+      });
+      if (!holder) throw new BadRequestException('That student does not exist');
+      if (holder.status !== 'ACTIVE')
+        throw new ConflictException(
+          'Advance credit can only be held for a student who is still in the school',
+        );
+      creditStudentId = wanted;
+    } else if (dto.keepExcessAsCredit) {
+      throw new BadRequestException(
+        'There is no excess to keep as advance credit',
+      );
+    }
+
+    if (dto.payerGuardianId) {
+      const involved = [
+        ...new Set([
+          ...planned.map((p) => p.studentId),
+          ...(creditStudentId ? [creditStudentId] : []),
+        ]),
+      ];
+      const linked = await tx.studentGuardian.count({
+        where: {
+          guardianId: dto.payerGuardianId,
+          studentId: { in: involved },
         },
       });
-      return { id, duplicate: false };
-    }, TX);
+      if (linked === 0)
+        throw new BadRequestException(
+          'That guardian is not linked to any student being paid for',
+        );
+    }
 
-    return { ...(await this.get(result.id)), duplicate: result.duplicate };
+    const id = randomUUID();
+    const receiptNo = formatReceiptNumber(
+      fiscalYear.label,
+      await reserveSequence(tx, `receipt:${fiscalYear.id}`, 1),
+    );
+    await tx.payment.create({
+      data: {
+        id,
+        receiptNo,
+        fiscalYearId: fiscalYear.id,
+        paidOn: isoToDate(paidOn),
+        method: dto.method,
+        reference,
+        amount: dto.amount,
+        payerGuardianId: dto.payerGuardianId,
+        payerName: dto.payerName,
+        creditStudentId,
+        receivedById: actor.id,
+        idempotencyKey: dto.idempotencyKey,
+        note: dto.note,
+      },
+    });
+    if (planned.length > 0) {
+      await tx.paymentAllocation.createMany({
+        data: [...planned]
+          .sort((a, b) => a.invoiceId.localeCompare(b.invoiceId))
+          .map((p) => ({
+            paymentId: id,
+            invoiceId: p.invoiceId,
+            amount: fromPaisa(p.amountPaisa),
+            allocatedById: actor.id,
+          })),
+      });
+    }
+    // Numbers only: no names, references or notes in the audit log.
+    await this.audit.recordIn(tx, {
+      actor,
+      action: 'payment.recorded',
+      entityType: 'payment',
+      entityId: id,
+      details: {
+        receiptNo,
+        method: dto.method,
+        amount: dto.amount,
+        invoices: planned.length,
+        credit: fromPaisa(remainder),
+      },
+    });
+    return { id, duplicate: false };
   }
 
   // ---------------------------------------------------------------- reading
@@ -464,8 +518,8 @@ export class PaymentsService {
       ];
     if (q.from || q.to)
       where.paidOn = {
-        ...(q.from ? { gte: isoToDate(q.from) } : {}),
-        ...(q.to ? { lte: isoToDate(q.to) } : {}),
+        ...(q.from ? { gte: isoToDate(requireDate('from', q.from)) } : {}),
+        ...(q.to ? { lte: isoToDate(requireDate('to', q.to)) } : {}),
       };
     if (q.search) {
       const search: Prisma.PaymentWhereInput = {

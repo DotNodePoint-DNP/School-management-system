@@ -1,5 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import {
+  childHref,
+  familyPath,
+  tabLabels,
+  formatNpr,
+} from "./family-navigation";
+import { FamilyQr } from "@/modules/finance/QrPayments";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PrintableDocuments } from "@/components/PrintableDocuments";
@@ -113,8 +121,8 @@ function TransactionList({
         >
           <strong>{String(row.number ?? row.receiptNo)}</strong>
           <span>
-            {String(row.issuedOn ?? row.paidOn)} · NPR{" "}
-            {String(row.outstanding ?? row.forChild)}
+            {String(row.issuedOn ?? row.paidOn)} ·{" "}
+            {formatNpr(Number(row.outstanding ?? row.forChild))}
           </span>
         </button>
       ))}
@@ -173,9 +181,13 @@ function Results({ id }: { id: string }) {
     queryFn: () => childResults(id),
   });
   const [key, setKey] = useState("");
-  const selected = list.data?.find(
-    (r) => r.enrollmentId + "/" + (r.exam?.id ?? "final") === key,
-  );
+  const selected =
+    list.data?.find(
+      (r) => r.enrollmentId + "/" + (r.exam?.id ?? "final") === key,
+    ) ?? list.data?.[0];
+  const selectedKey = selected
+    ? selected.enrollmentId + "/" + (selected.exam?.id ?? "final")
+    : "";
   const params: Record<string, string> = selected
     ? {
         enrollmentId: selected.enrollmentId,
@@ -183,7 +195,7 @@ function Results({ id }: { id: string }) {
       }
     : {};
   const report = useQuery({
-    queryKey: ["family", id, "report", key],
+    queryKey: ["family", id, "report", selectedKey],
     queryFn: () => childReport(id, "?" + new URLSearchParams(params)),
     enabled: !!selected,
   });
@@ -192,21 +204,91 @@ function Results({ id }: { id: string }) {
       <Failure error={list.error} retry={() => void list.refetch()} />
       {list.isPending && <p>Loading results…</p>}
       {list.data?.length === 0 && <p>No results have been released.</p>}
-      {list.data?.map((r) => {
-        const k = r.enrollmentId + "/" + (r.exam?.id ?? "final");
-        return (
-          <button key={k} className={buttonClass} onClick={() => setKey(k)}>
-            {r.academicYear.name} · {r.exam?.name ?? "Final result"} ·{" "}
-            {r.status}
-          </button>
-        );
-      })}
+      {selected && (
+        <div className="grid gap-4 rounded-lg bg-background p-4 sm:grid-cols-2">
+          <Field label="Released report">
+            <select
+              className={inputClass}
+              value={selectedKey}
+              onChange={(e) => setKey(e.target.value)}
+            >
+              {list.data?.map((r) => {
+                const k = r.enrollmentId + "/" + (r.exam?.id ?? "final");
+                return (
+                  <option key={k} value={k}>
+                    {r.academicYear.name} · {r.exam?.name ?? "Final result"}
+                  </option>
+                );
+              })}
+            </select>
+          </Field>
+          <div>
+            <p className="text-sm text-muted">Overall result</p>
+            <p className="mt-1 text-xl font-semibold">
+              {humanLabel(selected.status)}
+              {selected.percentage != null && " · " + selected.percentage + "%"}
+            </p>
+          </div>
+        </div>
+      )}
+      {selected && report.isPending && (
+        <p role="status">Loading report card…</p>
+      )}
       <Failure error={report.error} retry={() => void report.refetch()} />
       {report.data && (
         <>
-          <RecordDetails value={report.data} />
+          {Array.isArray(report.data.subjects) &&
+            report.data.subjects.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <caption className="pb-3 text-left text-lg font-semibold">
+                    Subject results
+                  </caption>
+                  <thead className="text-muted">
+                    <tr>
+                      <th className="py-2 pr-3">Subject</th>
+                      <th className="pr-3">Score</th>
+                      <th className="pr-3">Grade</th>
+                      <th>Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.data.subjects.filter(isRecord).map((s) => (
+                      <tr
+                        key={String(s.subjectId)}
+                        className="border-t border-line"
+                      >
+                        <th scope="row" className="py-3 pr-3 font-medium">
+                          {String(s.name)}
+                        </th>
+                        <td className="pr-3 tabular-nums">
+                          {typeof s.percentage === "number"
+                            ? s.percentage + "%"
+                            : "—"}
+                        </td>
+                        <td>{String(s.grade ?? "—")}</td>
+                        <td>{humanLabel(String(s.status))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          {isRecord(report.data.remark) &&
+            typeof report.data.remark.text === "string" && (
+              <div className="rounded-lg bg-background p-4">
+                <h3 className="font-semibold">Teacher’s remark</h3>
+                <p>{report.data.remark.text}</p>
+              </div>
+            )}
+          <details className="border-t border-line pt-3">
+            <summary className="cursor-pointer py-2 font-semibold">
+              Full report card details
+            </summary>
+            <RecordDetails value={report.data} />
+          </details>
           <PrintCopy
-            key={key}
+            key={selectedKey}
             kind="report-card"
             body={{ studentId: id, ...params }}
           />
@@ -232,6 +314,7 @@ function Summary({
   const enrollments = profile.data?.enrollments;
   const query = useQuery({
     queryKey: ["family", id, tab, range],
+    refetchInterval: tab === "fees" ? 60000 : false,
     queryFn: () => childSummary(id, tab, "?" + new URLSearchParams(range)),
   });
   return (
@@ -290,35 +373,32 @@ function Summary({
     </div>
   );
 }
-function ChildView({ child }: { child: Child }) {
+function ChildView({ child, tab }: { child: Child; tab: ChildTab }) {
   const id = child.id;
-  const [tab, setTab] = useState<ChildTab>("profile");
   const profile = useQuery({
     queryKey: ["family", id, "profile"],
     queryFn: () => childProfile(id),
     enabled: tab === "profile",
   });
-  const tabs: ChildTab[] = [
-    "profile",
-    "attendance",
-    "results",
-    "fees",
-    "invoices",
-    "payments",
-    "statement",
-  ];
   return (
     <div className="space-y-4">
-      <nav className="flex flex-wrap gap-2" aria-label="Student records">
-        {tabs.map((t) => (
-          <button
-            aria-pressed={t === tab}
-            className={t === tab ? primaryClass : buttonClass}
+      <nav
+        className="flex flex-wrap gap-2"
+        aria-label={"Records for " + child.name}
+      >
+        {(Object.keys(tabLabels) as ChildTab[]).map((t) => (
+          <Link
             key={t}
-            onClick={() => setTab(t)}
+            scroll={false}
+            href={childHref(child.admissionNo, t)}
+            aria-current={t === tab ? "page" : undefined}
+            className={
+              (t === tab ? primaryClass : buttonClass) +
+              " inline-flex items-center"
+            }
           >
-            {humanLabel(t)}
-          </button>
+            {tabLabels[t]}
+          </Link>
         ))}
       </nav>
       {tab === "profile" ? (
@@ -367,68 +447,107 @@ function ChildView({ child }: { child: Child }) {
         </div>
       ) : (
         <article className={panelClass}>
-          <h2 className="mb-4 text-xl font-semibold">{humanLabel(tab)}</h2>
+          <h2 className="mb-4 text-xl font-semibold">{tabLabels[tab]}</h2>
           {tab === "invoices" || tab === "payments" ? (
             <TransactionList key={tab} id={id} tab={tab} />
           ) : tab === "results" ? (
             <Results id={id} />
           ) : (
-            <Summary key={tab} id={id} tab={tab} />
+            <>
+              {tab === "fees" ? (
+                <>
+                  <FamilyQr key={id} childId={id} />
+                  <details className="mt-5 border-t border-line pt-4">
+                    <summary className="cursor-pointer font-semibold">
+                      Fee breakdown and due dates
+                    </summary>
+                    <Summary id={id} tab="fees" />
+                  </details>
+                </>
+              ) : (
+                <Summary key={tab} id={id} tab={tab} />
+              )}
+            </>
           )}
         </article>
       )}
     </div>
   );
 }
-export default function FamilyChildren() {
+export default function FamilyChildren({
+  student,
+  view,
+}: { student?: string; view?: string } = {}) {
   const home = useQuery({ queryKey: ["family", "home"], queryFn: familyHome });
   const cache = useQueryClient();
-  const [child, setChild] = useState(
-    () => cache.getQueryData<string>(["family", "selectedChild"]) ?? "",
-  );
+  const remembered = cache.getQueryData<string>(["family", "selectedChild"]);
   const selected =
-    home.data?.children.find((c) => c.id === child) ?? home.data?.children[0];
+    student !== undefined
+      ? home.data?.children.find((c) => c.admissionNo === student)
+      : (home.data?.children.find((c) => c.id === remembered) ??
+        home.data?.children[0]);
+  const tab: ChildTab =
+    view && Object.hasOwn(tabLabels, view) ? (view as ChildTab) : "profile";
   return (
-    <section className="mx-auto max-w-5xl space-y-6 p-4 text-ink sm:p-6">
+    <section className="mx-auto max-w-5xl space-y-5 text-ink">
       <header>
-        <h1 className="text-3xl font-semibold">Children</h1>
-        {home.data && (
-          <p className="mt-2 text-muted">
-            {home.data.guardian.name} &middot; {home.data.asOf}
+        <Link
+          className="inline-flex min-h-11 items-center text-sm font-medium text-teal hover:underline"
+          href={familyPath}
+        >
+          ← Family dashboard
+        </Link>
+        <h1 className="text-3xl font-semibold">
+          {selected?.name ?? "My children"}
+        </h1>
+        {selected && (
+          <p className="mt-1 text-muted">
+            {[
+              selected.current?.className,
+              selected.current?.sectionName,
+              "Admission " + selected.admissionNo,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         )}
       </header>
       <Failure error={home.error} retry={() => void home.refetch()} />
-      {home.isPending && <p>Loading family records…</p>}
-      {home.data?.children.length === 0 && (
-        <p>No children are linked to this account.</p>
+      {home.isPending && <p role="status">Loading family records…</p>}
+      {home.isSuccess && !selected && (
+        <p className={panelClass}>
+          {home.data.children.length
+            ? "This student is unavailable. Choose a linked child from your family dashboard."
+            : "No children are linked to this account."}
+        </p>
       )}
-      {home.isSuccess && selected && (
-        <>
-          <div className="max-w-md">
-            <Field label="Student">
-              <select
-                className={inputClass}
-                value={selected.id}
-                onChange={(e) => {
-                  setChild(e.target.value);
-                  cache.setQueryData(
-                    ["family", "selectedChild"],
-                    e.target.value,
-                  );
-                }}
-              >
-                {home.data?.children.map((c) => (
-                  <option value={c.id} key={c.id}>
-                    {c.name} · {c.admissionNo}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          <ChildView key={selected.id} child={selected} />
-        </>
+      {home.data && home.data.children.length > 1 && (
+        <nav
+          aria-label="Choose a child"
+          className="flex flex-wrap items-center gap-2 border-b border-line pb-3"
+        >
+          <span className="mr-1 text-sm text-muted">Choose a child</span>
+          {home.data.children.map((c) => (
+            <Link
+              key={c.id}
+              href={childHref(c.admissionNo, tab)}
+              aria-current={c.id === selected?.id ? "true" : undefined}
+              onClick={() =>
+                cache.setQueryData(["family", "selectedChild"], c.id)
+              }
+              className={
+                "inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold " +
+                (c.id === selected?.id
+                  ? "bg-mint text-ink"
+                  : "hover:bg-background")
+              }
+            >
+              {c.name} · {c.admissionNo}
+            </Link>
+          ))}
+        </nav>
       )}
+      {selected && <ChildView key={selected.id} child={selected} tab={tab} />}
     </section>
   );
 }

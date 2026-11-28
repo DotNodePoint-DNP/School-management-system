@@ -1,3 +1,9 @@
+import {
+  FinanceQrController,
+  FamilyQrController,
+} from './qr-claims.controller.js';
+import { QrClaimsService } from './qr-claims.service.js';
+import { PortalAccessService } from '../portal/portal-access.service.js';
 import { Module } from '@nestjs/common';
 import { AcademicYearsModule } from '../academic-years/academic-years.module.js';
 import { ClassesModule } from '../classes/classes.module.js';
@@ -44,6 +50,8 @@ import { FeeRemindersService } from './fee-reminders.service.js';
 @Module({
   imports: [AcademicYearsModule, ClassesModule],
   controllers: [
+    FinanceQrController,
+    FamilyQrController,
     FiscalYearsController,
     FeeHeadsController,
     BillingController,
@@ -58,6 +66,8 @@ import { FeeRemindersService } from './fee-reminders.service.js';
     FeeRemindersController,
   ],
   providers: [
+    QrClaimsService,
+    PortalAccessService,
     FiscalYearsService,
     FeeHeadsService,
     BillingPeriodsService,

@@ -6,8 +6,10 @@ import { isRecord, RecordDetails, humanLabel } from "./RecordDetails";
 
 export function PrintableDocuments({
   batch,
+  displayDetails = (value: unknown) => value,
 }: {
   batch: Record<string, unknown>;
+  displayDetails?: (value: unknown) => unknown;
 }) {
   const documents = Array.isArray(batch.documents) ? batch.documents : [];
   const assets = isRecord(batch.assets) ? batch.assets : {};
@@ -61,7 +63,7 @@ export function PrintableDocuments({
             <p className="text-sm">Issued {String(batch.issuedOn.ad)}</p>
           )}
         </header>
-        <RecordDetails value={document} />
+        <RecordDetails value={displayDetails(document)} />
         <footer className="mt-8 flex flex-wrap justify-between gap-5">
           {typeof assets.seal === "string" && (
             <Image
@@ -99,7 +101,9 @@ export function PrintableDocuments({
   return (
     <div className="space-y-4">
       {Array.isArray(batch.warnings) &&
-        batch.warnings.map((v, i) => <p key={i}>{String(v)}</p>)}
+        batch.warnings.map((v, i) => (
+          <p key={i}>{String(displayDetails(v) ?? "")}</p>
+        ))}
       {pages.length > 0 && (
         <button
           type="button"
@@ -113,7 +117,7 @@ export function PrintableDocuments({
       {Array.isArray(batch.skipped) && batch.skipped.length > 0 && (
         <section>
           <h3>Skipped records</h3>
-          <RecordDetails value={batch.skipped} />
+          <RecordDetails value={displayDetails(batch.skipped)} />
         </section>
       )}
       {typeof document !== "undefined" &&

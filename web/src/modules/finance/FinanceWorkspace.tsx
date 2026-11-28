@@ -1,18 +1,20 @@
 "use client";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listAcademicYears,
   listSchoolClasses,
 } from "@/modules/settings/services/academic-setup";
+import { displayFinanceData } from "./services/presentation";
 import { FinanceResult } from "./components/FinanceResult";
 import { isRecord } from "@/components/RecordDetails";
 import { PrintableDocuments } from "@/components/PrintableDocuments";
 import { listFeeHeads, listFiscalYears } from "./services/setup";
 import { forms, workflows, type Workflow } from "./services/workflows";
 import { requestWorkflow, resourceKey, type Values } from "./services/requests";
-import { RecordFinder } from "./components/RecordFinder";
-import { toast } from "sonner";
+import { LookupContext } from "./components/RecordFinder";
+import type { Choice } from "./services/lookups";
 import {
   WorkflowField,
   formPayload,
@@ -43,10 +45,12 @@ function guardFigures(path: string, preview: Values) {
 }
 
 function Operation({
+  remember,
   action,
   options,
   permissions,
 }: {
+  remember: (key: string, r: Choice) => void;
   action: Workflow;
   options: Options;
   permissions: string[];
@@ -97,7 +101,7 @@ function Operation({
     setResult(undefined);
     setError(undefined);
   }
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent, page?: number) {
     event.preventDefault();
     if (busy) return;
     if (
@@ -152,9 +156,9 @@ function Operation({
             );
           const staff = current.figures.cashiers.filter((c) => c.cashCount > 0);
           setCashiers(
-            staff.map((c) => ({
+            staff.map((c, index) => ({
               id: c.cashier.id,
-              name: c.cashier.name ?? c.cashier.id,
+              name: c.cashier.name ?? "Cashier " + (index + 1),
             })),
           );
           setDraft({
@@ -171,6 +175,7 @@ function Operation({
         return;
       }
       const payload = formPayload(schema, draft);
+      if (action.paged) payload.page = page ?? 1;
       if (scoped) {
         for (const field of selectors)
           if (field !== audience) delete payload[field];
@@ -244,134 +249,184 @@ function Operation({
     }
   }
   return (
-    <div className="space-y-5">
-      {!complete && (
-        <form onSubmit={submit} className={panelClass}>
-          <fieldset disabled={busy} className="space-y-5">
-            <legend className="mb-3 text-xl font-semibold">
-              {action.label}
-            </legend>
-            {scoped && (
-              <Field label="Who is included?">
-                <select
-                  className={inputClass}
-                  required
-                  value={audience}
-                  onChange={(e) => {
-                    changed();
-                    setAudience(e.target.value);
-                  }}
-                >
-                  <option value="">Select audience</option>
-                  {selectors.map((key, index) => (
-                    <option value={key} key={key}>
-                      {
-                        [
-                          "One class",
-                          "One section",
-                          "Selected students",
-                          "All eligible students",
-                        ][index]
-                      }
-                    </option>
+    <LookupContext.Provider
+      value={{
+        permissions,
+        remember,
+        year: String(refs.yearId ?? draft.academicYearId ?? ""),
+        enrollment: String(refs.enrollmentId ?? ""),
+        reminders: action.path.includes("/reminders/"),
+      }}
+    >
+      <div className="space-y-5">
+        {!complete && (
+          <form onSubmit={submit} className={panelClass}>
+            <fieldset disabled={busy} className="space-y-5">
+              <legend className="mb-3 text-xl font-semibold">
+                {action.label}
+              </legend>
+              {scoped && (
+                <Field label="Who is included?">
+                  <select
+                    className={inputClass}
+                    required
+                    value={audience}
+                    onChange={(e) => {
+                      changed();
+                      setAudience(e.target.value);
+                    }}
+                  >
+                    <option value="">Select audience</option>
+                    {selectors.map((key, index) => (
+                      <option value={key} key={key}>
+                        {
+                          [
+                            "One class",
+                            "One section",
+                            "Selected students",
+                            "All eligible students",
+                          ][index]
+                        }
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(!prepared || !structure) &&
+                  pathKeys.map((key) => (
+                    <WorkflowField
+                      key={key}
+                      field={{ key, type: "text", required: true }}
+                      value={refs[key]}
+                      options={options}
+                      change={(v) => {
+                        changed();
+                        setRefs({
+                          ...refs,
+                          ...(key === "yearId" ? { periodId: undefined } : {}),
+                          ...(key === "enrollmentId"
+                            ? { assignmentId: undefined }
+                            : {}),
+                          [key]: v,
+                        });
+                      }}
+                    />
                   ))}
-                </select>
-              </Field>
+                {schema
+                  .filter(
+                    (f) =>
+                      (!action.paged || f.key !== "page") &&
+                      (!scoped ||
+                        !selectors.includes(f.key) ||
+                        (f.key === audience && f.key !== "all")) &&
+                      (action.form !== "InvoiceRunDto" ||
+                        ((f.key !== "periodId" || draft.kind === "PERIODIC") &&
+                          (!["academicYearId", "dueDate", "dueDateBs"].includes(
+                            f.key,
+                          ) ||
+                            draft.kind === "ADMISSION"))) &&
+                      (!prepare || (dayClose && f.key === "date")) &&
+                      (!dayClose ||
+                        !prepared ||
+                        !["expect", "date", "dateBs"].includes(f.key)) &&
+                      !["idempotencyKey", "requestKey"].includes(f.key) &&
+                      (!(previewPath || action.path.endsWith("/preview")) ||
+                        !["expect", "expectNet"].includes(f.key)),
+                  )
+                  .map((f) => (
+                    <WorkflowField
+                      key={f.key}
+                      field={f}
+                      value={draft[f.key]}
+                      options={{
+                        ...options,
+                        ...(cashiers.length ? { cashierId: cashiers } : {}),
+                      }}
+                      change={(v) => {
+                        changed();
+                        setDraft({ ...draft, [f.key]: v });
+                      }}
+                    />
+                  ))}
+              </div>
+              <Failure error={error} />
+              <button className={primaryClass}>
+                {busy
+                  ? "Working…"
+                  : prepare
+                    ? structure
+                      ? "Load class structure"
+                      : "Review day figures"
+                    : previewPath && !preview
+                      ? "Review preview"
+                      : action.label}
+              </button>
+            </fieldset>
+          </form>
+        )}
+        {result !== undefined && (
+          <section aria-live="polite" className={panelClass}>
+            <h2 className="mb-4 text-lg font-semibold">
+              {preview ? "Preview" : complete ? "Saved" : action.label}
+            </h2>
+            {isRecord(result) && Array.isArray(result.documents) ? (
+              <PrintableDocuments
+                batch={result}
+                displayDetails={displayFinanceData}
+              />
+            ) : (
+              <>
+                <FinanceResult value={result} />
+                {action.paged &&
+                  isRecord(result) &&
+                  isRecord(result.meta) &&
+                  Number(result.meta.totalPages) > 1 && (
+                    <nav aria-label="Result pages" className="mt-4 flex gap-3">
+                      {[
+                        ["Previous", -1],
+                        ["Next", 1],
+                      ].map(([label, step]) => {
+                        const meta = result.meta as Values;
+                        const next = Number(meta.page) + Number(step);
+                        return (
+                          <button
+                            type="button"
+                            className={buttonClass}
+                            key={label}
+                            disabled={
+                              busy || next < 1 || next > Number(meta.totalPages)
+                            }
+                            onClick={(e) => void submit(e, next)}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  )}
+              </>
             )}
-            <div className="grid gap-4 sm:grid-cols-2">
-              {(!prepared || !structure) &&
-                pathKeys.map((key) => (
-                  <WorkflowField
-                    key={key}
-                    field={{ key, type: "text", required: true }}
-                    value={refs[key]}
-                    options={options}
-                    change={(v) => {
-                      changed();
-                      setRefs({ ...refs, [key]: v });
-                    }}
-                  />
-                ))}
-              {schema
-                .filter(
-                  (f) =>
-                    (!scoped ||
-                      !selectors.includes(f.key) ||
-                      (f.key === audience && f.key !== "all")) &&
-                    (action.form !== "InvoiceRunDto" ||
-                      ((f.key !== "periodId" || draft.kind === "PERIODIC") &&
-                        (!["academicYearId", "dueDate", "dueDateBs"].includes(
-                          f.key,
-                        ) ||
-                          draft.kind === "ADMISSION"))) &&
-                    (!prepare || (dayClose && f.key === "date")) &&
-                    (!dayClose ||
-                      !prepared ||
-                      !["expect", "date", "dateBs"].includes(f.key)) &&
-                    !["idempotencyKey", "requestKey"].includes(f.key) &&
-                    (!(previewPath || action.path.endsWith("/preview")) ||
-                      !["expect", "expectNet"].includes(f.key)),
-                )
-                .map((f) => (
-                  <WorkflowField
-                    key={f.key}
-                    field={f}
-                    value={draft[f.key]}
-                    options={{
-                      ...options,
-                      ...(cashiers.length ? { cashierId: cashiers } : {}),
-                    }}
-                    change={(v) => {
-                      changed();
-                      setDraft({ ...draft, [f.key]: v });
-                    }}
-                  />
-                ))}
-            </div>
-            <Failure error={error} />
-            <button className={primaryClass}>
-              {busy
-                ? "Working…"
-                : prepare
-                  ? structure
-                    ? "Load class structure"
-                    : "Review day figures"
-                  : previewPath && !preview
-                    ? "Review preview"
-                    : action.label}
-            </button>
-          </fieldset>
-        </form>
-      )}
-      {result !== undefined && (
-        <section aria-live="polite" className={panelClass}>
-          <h2 className="mb-4 text-lg font-semibold">
-            {preview ? "Preview" : complete ? "Saved" : action.label}
-          </h2>
-          {isRecord(result) && Array.isArray(result.documents) ? (
-            <PrintableDocuments batch={result} />
-          ) : (
-            <FinanceResult value={result} />
-          )}
-          {complete && (
-            <button
-              className={buttonClass + " mt-4"}
-              onClick={() => {
-                setComplete(false);
-                setAudience("");
-                setPrepared(false);
-                setRequestKey("");
-                setDraft({});
-                setRefs({});
-                changed();
-              }}
-            >
-              Start another
-            </button>
-          )}
-        </section>
-      )}
-    </div>
+            {complete && (
+              <button
+                className={buttonClass + " mt-4"}
+                onClick={() => {
+                  setComplete(false);
+                  setAudience("");
+                  setPrepared(false);
+                  setRequestKey("");
+                  setDraft({});
+                  setRefs({});
+                  changed();
+                }}
+              >
+                Start another
+              </button>
+            )}
+          </section>
+        )}
+      </div>
+    </LookupContext.Provider>
   );
 }
 export default function FinanceWorkspace({
@@ -425,7 +480,15 @@ export default function FinanceWorkspace({
   if (!action) return null;
   return (
     <section className="mx-auto max-w-6xl space-y-6 text-ink">
-      <h1 className="text-3xl font-semibold">{title}</h1>
+      <header>
+        <Link
+          href="/dashboard/finance"
+          className="text-sm text-muted hover:underline"
+        >
+          Finance overview
+        </Link>
+        <h1 className="mt-1 text-3xl font-semibold">{title}</h1>
+      </header>
       <div className="grid min-w-0 gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
         <div className="lg:hidden">
           <Field label="Task">
@@ -461,18 +524,13 @@ export default function FinanceWorkspace({
           ))}
         </nav>
         <div className="min-w-0 space-y-4">
-          <RecordFinder
-            options={options}
-            permissions={permissions}
-            choose={(key, r) => {
+          <Operation
+            remember={(key, r) =>
               setMatches((prev) => ({
                 ...prev,
                 [key]: [r, ...(prev[key] ?? []).filter((x) => x.id !== r.id)],
-              }));
-              toast.success(r.name + " added to the form choices.");
-            }}
-          />
-          <Operation
+              }))
+            }
             key={section + action.label}
             action={action}
             options={options}

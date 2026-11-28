@@ -1,3 +1,5 @@
+import { RecordPicker } from "./RecordFinder";
+import { financeLabel } from "../services/presentation";
 import { useState } from "react";
 import { humanLabel, isRecord } from "@/components/RecordDetails";
 import {
@@ -17,7 +19,7 @@ interface Props {
 }
 export function WorkflowField({ field: f, value, change, options }: Props) {
   const [enabled, setEnabled] = useState(Boolean(f.required));
-  const label = humanLabel(f.key);
+  const label = financeLabel(f.key);
   if (f.type === "group" || f.type === "rows") {
     const rows = Array.isArray(value) ? value : [];
     const schema = forms[f.schema!];
@@ -100,11 +102,20 @@ export function WorkflowField({ field: f, value, change, options }: Props) {
     );
   }
   const list = f.type === "list";
-  const optionKey = (list ? f.key.replace(/Ids$/, "Id") : f.key).replace(
-    /^(toPeriodId|fromPeriodId)$/,
-    "periodId",
-  );
-  const opts = options[optionKey];
+  if (/Ids?$/.test(f.key) || f.key === "id")
+    return (
+      <div>
+        <RecordPicker
+          fieldKey={f.key}
+          value={value}
+          change={change}
+          required={f.required}
+          multiple={list}
+          options={options}
+        />
+        {f.hint && <p className="mt-1 text-xs text-muted">{f.hint}</p>}
+      </div>
+    );
   const raw = value === undefined ? "" : String(value);
   const common = { className: inputClass, required: f.required, value: raw };
   return (
@@ -133,28 +144,6 @@ export function WorkflowField({ field: f, value, change, options }: Props) {
                     ? "Yes"
                     : "No"
                   : humanLabel(String(v))}
-              </option>
-            ))}
-          </select>
-        ) : opts?.length ? (
-          <select
-            {...common}
-            multiple={list}
-            value={list ? raw.split(",").filter(Boolean) : raw}
-            onChange={(e) =>
-              change(
-                list
-                  ? Array.from(e.target.selectedOptions, (o) => o.value)
-                      .filter(Boolean)
-                      .join(",")
-                  : e.target.value || undefined,
-              )
-            }
-          >
-            <option value="">Select…</option>
-            {opts.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
               </option>
             ))}
           </select>
@@ -188,8 +177,7 @@ export function WorkflowField({ field: f, value, change, options }: Props) {
       {(f.hint || f.type === "list" || f.type === "numbers") && (
         <p className="mt-1 text-xs text-muted">
           {f.hint}{" "}
-          {!opts?.length &&
-            (f.type === "list" || f.type === "numbers") &&
+          {(f.type === "list" || f.type === "numbers") &&
             "Separate values with commas."}
         </p>
       )}

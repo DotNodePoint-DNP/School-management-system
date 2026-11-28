@@ -66,9 +66,33 @@ export const childProfile = (id: string) =>
 export const familyHome = () =>
   createApiClient().get<FamilyHome>("/portal/home");
 export const familyAccount = () =>
-  createApiClient().get<FamilyRecord>("/portal/me");
+  createApiClient().get<{
+    guardian: { name: string };
+    children: (Pick<Child, "id" | "admissionNo" | "name" | "current"> & {
+      relationship: string;
+      isPrimary: boolean;
+      status: string;
+    })[];
+  }>("/portal/me");
 export const familyFees = () =>
-  createApiClient().get<FamilyRecord>("/portal/fees");
+  createApiClient().get<{
+    asOf: string;
+    totals: {
+      outstanding: number;
+      overdue: number;
+      notYetDue: number;
+      credit: number;
+    };
+    children: {
+      student: { id: string; name: string; admissionNo: string };
+      outstanding: number;
+      overdue: number;
+      credit: number;
+      openInvoices: number;
+      oldestDueDate: string | null;
+      buckets: Record<string, number>;
+    }[];
+  }>("/portal/fees");
 export const childSummary = (
   id: string,
   tab: "attendance" | "statement" | "fees",

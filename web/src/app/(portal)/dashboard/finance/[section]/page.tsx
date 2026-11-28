@@ -1,3 +1,4 @@
+import { FinanceQr } from "@/modules/finance/QrPayments";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/core/session/server";
 import { financeSections } from "@/modules/finance/sections";
@@ -17,6 +18,7 @@ export default async function Page({
       s.permissions.some((p) => user.permissions.includes(p)),
   );
   if (!feature) notFound();
+  if (section === "qr-payments") return <FinanceQr permissions={user.permissions} />;
   return (
     <FinanceWorkspace
       section={section}

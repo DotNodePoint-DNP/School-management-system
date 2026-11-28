@@ -1,3 +1,4 @@
+import { displayFinanceData } from "../services/presentation";
 import {
   humanLabel,
   isRecord,
@@ -6,12 +7,14 @@ import {
 
 function summary(row: Record<string, unknown>, index: number) {
   const student = isRecord(row.student) ? row.student.name : undefined;
+  const invoice = isRecord(row.invoice) ? row.invoice.number : undefined;
   const name =
     row.number ??
     row.receiptNo ??
     row.name ??
     row.label ??
     row.code ??
+    invoice ??
     student ??
     row.date ??
     row.createdAt;
@@ -23,7 +26,43 @@ export function FinanceResult({ value }: { value: unknown }) {
       ? value
       : null;
   const entries = page ? page.items : value;
-  if (!Array.isArray(entries)) return <RecordDetails value={value} showIds />;
+  if (!Array.isArray(entries)) {
+    const details = displayFinanceData(entries);
+    if (details === undefined) return <p role="status">Operation completed.</p>;
+    if (!isRecord(details)) return <RecordDetails value={details} />;
+    const metrics = [
+      "outstanding",
+      "amount",
+      "paid",
+      "net",
+      "totalOutstanding",
+      "totalCredit",
+    ].filter((key) => typeof details[key] === "string");
+    return (
+      <div className="space-y-4">
+        {metrics.length > 0 && (
+          <dl className="grid gap-2 sm:grid-cols-3">
+            {metrics.map((key) => (
+              <div
+                key={key}
+                className="rounded-lg border border-line bg-background p-3"
+              >
+                <dt className="text-sm text-muted">{humanLabel(key)}</dt>
+                <dd className="font-semibold tabular-nums">
+                  {String(details[key])}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <RecordDetails
+          value={Object.fromEntries(
+            Object.entries(details).filter(([key]) => !metrics.includes(key)),
+          )}
+        />
+      </div>
+    );
+  }
   if (!entries.length)
     return <p className="text-muted">No matching records.</p>;
   return (
@@ -43,7 +82,13 @@ export function FinanceResult({ value }: { value: unknown }) {
             {isRecord(row) ? (
               <details>
                 <summary className="min-h-11 cursor-pointer py-3">
-                  <span className="font-semibold">{summary(row, i)}</span>
+                  <span className="font-semibold">
+                    {summary(
+                      (displayFinanceData(row) as Record<string, unknown>) ??
+                        {},
+                      i,
+                    )}
+                  </span>
                   <span className="ml-3 text-sm text-muted">
                     {typeof row.status === "string"
                       ? humanLabel(row.status)
@@ -60,11 +105,11 @@ export function FinanceResult({ value }: { value: unknown }) {
                     ))}
                 </summary>
                 <div className="mb-3 rounded-lg bg-background p-3">
-                  <RecordDetails value={row} showIds />
+                  <RecordDetails value={displayFinanceData(row)} />
                 </div>
               </details>
             ) : (
-              <RecordDetails value={row} />
+              <RecordDetails value={displayFinanceData(row)} />
             )}
           </li>
         ))}

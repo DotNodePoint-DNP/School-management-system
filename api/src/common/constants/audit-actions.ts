@@ -148,6 +148,8 @@ export const AUDIT_ACTIONS = [
   'adjustment.approved',
   'adjustment.rejected',
 
+  'qr.changed',
+  'qr.claim_changed',
   'payment.recorded',
   'payment.reversed',
   'credit.applied',

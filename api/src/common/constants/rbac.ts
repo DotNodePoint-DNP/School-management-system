@@ -105,6 +105,8 @@ export const PERMISSIONS = [
   'fees:adjust',
   'fees:adjust-approve',
 
+  'fees:qr-manage',
+  'fees:qr-review',
   'fees:payment-record',
   'fees:payment-backdate',
   'fees:payment-reverse',

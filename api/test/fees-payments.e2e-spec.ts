@@ -1,9 +1,12 @@
+import sharp from 'sharp';
+import { DayLockService } from '../src/modules/fees/day-lock.service.js';
+import { AuditService } from '../src/modules/audit-logs/audit.service.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { hashPassword } from '../src/common/utils/password.js';
@@ -32,6 +35,8 @@ type Who =
   | 'backdater'
   | 'principal'
   | 'reader'
+  | 'parent'
+  | 'reviewer'
   | 'plain';
 type S = 's1' | 's2' | 's3' | 's4';
 const STUDENTS: S[] = ['s1', 's2', 's3', 's4'];
@@ -140,6 +145,12 @@ describe('Payments, receipts and allocation (e2e)', () => {
         });
         await tx.paymentReversal.deleteMany({
           where: { paymentId: { in: payments } },
+        });
+        await tx.qrClaim.deleteMany({
+          where: { studentId: { in: studentIds } },
+        });
+        await tx.schoolQr.deleteMany({
+          where: { merchant: { startsWith: PFX } },
         });
         await tx.paymentAllocation.deleteMany({
           where: { paymentId: { in: payments } },
@@ -322,6 +333,8 @@ describe('Payments, receipts and allocation (e2e)', () => {
     }
 
     await makeUser('setup', [
+      ['fees', 'qr-manage'],
+      ['fees', 'qr-review'],
       ['fees', 'read'],
       ['fees', 'structure-manage'],
     ]);
@@ -352,6 +365,8 @@ describe('Payments, receipts and allocation (e2e)', () => {
     ]);
     await makeUser('reader', [['fees', 'read']]);
     await makeUser('plain', []);
+    await makeUser('parent', [['portal', 'access']]);
+    await makeUser('reviewer', [['fees', 'qr-review']]);
 
     yearA = (
       await prisma.academicYear.create({
@@ -398,7 +413,11 @@ describe('Payments, receipts and allocation (e2e)', () => {
 
     guardianId = (
       await prisma.guardian.create({
-        data: { firstName: `${PFX}-G`, phone: `+97798${TAIL.slice(0, 8)}` },
+        data: {
+          userId: userId.parent,
+          firstName: `${PFX}-G`,
+          phone: `+97798${TAIL.slice(0, 8)}`,
+        },
       })
     ).id;
     for (const [index, key] of STUDENTS.entries()) {
@@ -1143,7 +1162,11 @@ describe('Payments, receipts and allocation (e2e)', () => {
     );
 
     const audit = await prisma.auditLog.findFirstOrThrow({
-      where: { action: 'payment.recorded', entityType: 'payment' },
+      where: {
+        action: 'payment.recorded',
+        entityType: 'payment',
+        actorId: userId.cashier,
+      },
       orderBy: { occurredAt: 'asc' },
     });
     expect(audit.details).toMatchObject({
@@ -1163,8 +1186,329 @@ describe('Payments, receipts and allocation (e2e)', () => {
       `TXN-${RUN}`,
       `ESW-${RUN}`,
       'Receipt book entry',
-      PFX,
+      `${PFX}-G`,
+      `${PFX}-s1`,
     ])
       expect(text).not.toContain(secret);
+  });
+  it('only a verified QR approval posts money and concurrent retries return one receipt', async ({
+    skip,
+  }) => {
+    if (blocked) skip();
+    // Do not replace an unrelated school's live QR even on a shared test database.
+    if (await prisma.schoolQr.count({ where: { active: true } })) skip();
+    const png = await sharp({
+      create: { width: 20, height: 20, channels: 3, background: 'white' },
+    })
+      .png()
+      .toBuffer();
+    const publish = () =>
+      http()
+        .post(V1 + '/fees/qr/configuration')
+        .set(auth(token.setup))
+        .field('merchant', PFX + ' test merchant')
+        .attach('image', png, 'qr.png')
+        .expect(201);
+    const qr = (await publish()).body.data;
+    await get(
+      '/portal/children/' + stu.s1 + '/qr/code/' + qr.id,
+      token.parent,
+    ).expect(200);
+    await publish();
+    await get(
+      '/portal/children/' + stu.s1 + '/qr/code/' + qr.id,
+      token.parent,
+    ).expect(404);
+    const child = stu.s1;
+    const { id: enrollmentId } = await prisma.enrollment.findFirstOrThrow({
+      where: { studentId: child },
+    });
+    const head = await prisma.feeHead.create({
+      data: {
+        code: 'T' + TAIL + 'QR',
+        name: PFX + ' QR charges',
+        frequency: 'AD_HOC',
+      },
+    });
+    await post(
+      '/enrollments/' + enrollmentId + '/invoices/ad-hoc',
+      {
+        requestKey: randomUUID(),
+        lines: [
+          { feeHeadId: head.id, amount: 8000, description: 'QR test charge' },
+        ],
+      },
+      token.cashier,
+    ).expect(201);
+    const invoiceId = (
+      await prisma.invoice.findFirstOrThrow({
+        where: { enrollmentId, kind: 'AD_HOC' },
+        orderBy: { createdAt: 'desc' },
+      })
+    ).id;
+    const sibling = stu.s2;
+    const balance = async (id: string) =>
+      (await get('/dues?studentIds=' + id).expect(200)).body.data
+        .totalOutstanding as number;
+    const [before, siblingBefore] = await Promise.all([
+      balance(child),
+      balance(sibling),
+    ]);
+    const path = '/portal/children/' + child + '/qr/claims';
+    const dto = {
+      requestKey: randomUUID(),
+      qrId: qr.id,
+      transferredOn: today(),
+      amount: 3000,
+      allocations: [{ invoiceId, amount: 3000 }],
+      reference: 'QR-' + RUN,
+    };
+    await post(
+      path,
+      { ...dto, allocations: [{ invoiceId: inv.s2[0], amount: 3000 }] },
+      token.parent,
+    ).expect(400);
+    await post(
+      '/portal/children/' + stu.s3 + '/qr/claims',
+      dto,
+      token.parent,
+    ).expect(404);
+    const submit = () =>
+      http()
+        .post(V1 + path)
+        .set(auth(token.parent))
+        .field('requestKey', dto.requestKey)
+        .field('qrId', qr.id)
+        .field('transferredOn', today())
+        .field('amount', '3000')
+        .field('allocations', JSON.stringify(dto.allocations))
+        .attach('image', png, 'proof.png')
+        .expect(201);
+    const id = (await submit()).body.data.id as string;
+    expect((await submit()).body.data.id).toBe(id);
+    expect(await balance(child)).toBe(before);
+    const found = (await get(path, token.parent).expect(200)).body.data.find(
+      (c: { id: string }) => c.id === id,
+    );
+    expect(found.trackingNumber).toBeGreaterThan(0);
+    const proof = '/claims/' + id + '/evidence/' + found.events[0].id;
+    await get('/portal/children/' + child + '/qr' + proof, token.parent).expect(
+      200,
+    );
+    await get(
+      '/portal/children/' + sibling + '/qr' + proof,
+      token.parent,
+    ).expect(404);
+    await get('/fees/qr' + proof, token.cashier).expect(403);
+    const endpoint = '/fees/qr/claims/' + id + '/decision';
+    const decision = {
+      status: 'APPROVED',
+      reference: dto.reference,
+      verifiedAmount: 3000,
+      sender: 'Test sender',
+    };
+    await post(endpoint, decision, token.cashier).expect(403);
+    await post(
+      endpoint,
+      { ...decision, verifiedAmount: 105 },
+      token.reviewer,
+    ).expect(409);
+    await pay({
+      amount: 3000,
+      method: 'FONEPAY_QR',
+      reference: dto.reference,
+      allocations: dto.allocations,
+    }).expect(400);
+    await post(
+      endpoint,
+      { status: 'CLARIFICATION', note: 'Please confirm the reference.' },
+      token.reviewer,
+    ).expect(201);
+    await post(
+      path + '/' + id + '/evidence',
+      { reference: dto.reference },
+      token.parent,
+    ).expect(201);
+    await pay({
+      method: 'BANK_TRANSFER',
+      amount: 3000,
+      reference: dto.reference,
+      allocations: dto.allocations,
+    }).expect(409);
+    const closed = vi
+      .spyOn(app.get(DayLockService), 'isClosed')
+      .mockResolvedValueOnce(true);
+    try {
+      await post(endpoint, decision, token.reviewer).expect(409);
+    } finally {
+      closed.mockRestore();
+    }
+    const audit = app.get(AuditService);
+    const record = audit.recordIn.bind(audit);
+    const failure = vi.spyOn(audit, 'recordIn').mockImplementation((db, e) => {
+      if (e.action === 'qr.claim_changed')
+        throw new Error('Injected QR approval failure');
+      return record(db, e);
+    });
+    try {
+      await post(endpoint, decision, token.reviewer).expect(500);
+    } finally {
+      failure.mockRestore();
+    }
+    expect(await balance(child)).toBe(before);
+    expect(
+      await prisma.payment.count({ where: { reference: dto.reference } }),
+    ).toBe(0);
+    const responses = await Promise.all(
+      [token.setup, token.reviewer].map((t) =>
+        post(endpoint, decision, t).expect(201),
+      ),
+    );
+    expect(responses[0].body.data.paymentId).toBe(
+      responses[1].body.data.paymentId,
+    );
+    expect(await balance(child)).toBe(before - 3000);
+    expect(await balance(sibling)).toBe(siblingBefore);
+    const posted = await prisma.payment.findUniqueOrThrow({
+      where: { id: responses[0].body.data.paymentId },
+      include: { allocations: true },
+    });
+    expect(posted).toMatchObject({
+      payerGuardianId: guardianId,
+      payerName: 'Test sender',
+      allocations: [{ invoiceId }],
+    });
+    expect([userId.setup, userId.reviewer]).toContain(posted.receivedById);
+    const dues = (await get('/dues?studentIds=' + child)).body.data.students[0]
+      .invoices as { id: string; outstanding: number }[];
+    expect(dues.find((i) => i.id === invoiceId)?.outstanding).toBe(5000);
+    const other = (
+      await post(
+        path,
+        { ...dto, requestKey: randomUUID() },
+        token.parent,
+      ).expect(201)
+    ).body.data.id;
+    await post(
+      '/fees/qr/claims/' + other + '/decision',
+      decision,
+      token.reviewer,
+    ).expect(409);
+    await post(
+      '/fees/qr/claims/' + other + '/decision',
+      { status: 'REJECTED', note: 'Duplicate transfer' },
+      token.reviewer,
+    ).expect(201);
+    expect(await balance(child)).toBe(before - 3000);
+    const matches = await post(
+      '/fees/qr/reconcile',
+      {
+        lines: [
+          { reference: dto.reference, amount: 3000 },
+          { reference: 'unmatched', amount: 5 },
+        ],
+      },
+      token.reviewer,
+    ).expect(201);
+    expect(matches.body.data.map((r: { status: string }) => r.status)).toEqual([
+      'MATCHED',
+      'UNMATCHED',
+    ]);
+
+    const changed = (
+      await post(
+        path,
+        { ...dto, requestKey: randomUUID(), reference: 'SPLIT-' + RUN },
+        token.parent,
+      ).expect(201)
+    ).body.data.id;
+    await pay({
+      amount: 3500,
+      allocations: [{ invoiceId, amount: 3500 }],
+    }).expect(201);
+    const revise = '/fees/qr/claims/' + changed + '/decision';
+    const split = { ...decision, reference: 'SPLIT-' + RUN };
+    await post(revise, split, token.reviewer).expect(409);
+    const siblingDues = (await get('/dues?studentIds=' + sibling)).body.data
+      .students[0].invoices as { id: string; outstanding: number }[];
+    const open = siblingDues.find((row) => row.outstanding >= 1500);
+    expect(open).toBeDefined();
+    const splitFor = (otherInvoice: string) => ({
+      ...split,
+      note: 'Guardian confirmed the sibling split.',
+      allocations: [
+        { invoiceId, amount: 1500 },
+        { invoiceId: otherInvoice, amount: 1500 },
+      ],
+    });
+    await post(revise, splitFor(inv.s3[0]), token.reviewer).expect(400);
+    await post(revise, splitFor(open!.id), token.reviewer).expect(201);
+    expect(await balance(sibling)).toBe(siblingBefore - 1500);
+
+    // A printed receipt number resolves to the existing verified payment.
+    await post(
+      '/enrollments/' + enrollmentId + '/invoices/ad-hoc',
+      {
+        requestKey: randomUUID(),
+        lines: [
+          { feeHeadId: head.id, amount: 25, description: 'Receipt matching' },
+        ],
+      },
+      token.cashier,
+    ).expect(201);
+    const matchInvoice = await prisma.invoice.findFirstOrThrow({
+      where: { enrollmentId, kind: 'AD_HOC' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const reference = 'OFFICE-' + RUN;
+    const allocations = [{ invoiceId: matchInvoice.id, amount: 25 }];
+    const receipt = (
+      await pay({
+        amount: 25,
+        method: 'BANK_TRANSFER',
+        reference,
+        payerGuardianId: guardianId,
+        allocations,
+      }).expect(201)
+    ).body.data;
+    const matchClaim = (
+      await post(
+        path,
+        {
+          ...dto,
+          requestKey: randomUUID(),
+          amount: 25,
+          reference,
+          allocations,
+        },
+        token.parent,
+      ).expect(201)
+    ).body.data;
+    const link = '/fees/qr/claims/' + matchClaim.id + '/decision';
+    const matchDecision = { status: 'APPROVED', reference, verifiedAmount: 25 };
+    await post(
+      link,
+      { ...matchDecision, existingReceiptNo: 'missing-receipt' },
+      token.reviewer,
+    ).expect(409);
+    const alreadyPosted = await balance(child);
+    expect(
+      (
+        await post(
+          link,
+          { ...matchDecision, existingReceiptNo: receipt.receiptNo },
+          token.reviewer,
+        ).expect(201)
+      ).body.data.paymentId,
+    ).toBe(receipt.id);
+    expect(await balance(child)).toBe(alreadyPosted);
+
+    await prisma.studentGuardian.updateMany({
+      where: { guardianId, studentId: child },
+      data: { portalAccess: false },
+    });
+    await get('/portal/children/' + child + '/qr' + proof, token.parent).expect(
+      404,
+    );
   });
 });

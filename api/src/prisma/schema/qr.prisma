@@ -1,0 +1,66 @@
+enum QrClaimStatus {
+  PENDING
+  CLARIFICATION
+  REJECTED
+  APPROVED
+}
+
+model SchoolQr {
+  id String @id @default(uuid(7)) @db.Uuid
+  merchant String
+  active Boolean @default(true)
+  image Bytes
+  createdBy String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  claims QrClaim[]
+  @@map("school_qrs")
+}
+
+model QrClaim {
+  trackingNumber Int @unique @default(autoincrement()) @map("tracking_number")
+  id String @id @default(uuid(7)) @db.Uuid
+  requestKey String @unique @db.Uuid
+  fingerprint String
+  guardianId String @db.Uuid
+  studentId String @db.Uuid
+  submittedBy String @db.Uuid
+  qrId String @db.Uuid
+  transferredOn DateTime @db.Date
+  amount Decimal @db.Decimal(12,2)
+  status QrClaimStatus @default(PENDING)
+  paymentId String? @unique @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  guardian Guardian @relation(fields:[guardianId], references:[id], onDelete:Restrict)
+  student Student @relation(fields:[studentId], references:[id], onDelete:Restrict)
+  qr SchoolQr @relation(fields:[qrId], references:[id], onDelete:Restrict)
+  payment Payment? @relation(fields:[paymentId], references:[id], onDelete:Restrict)
+  allocations QrClaimAllocation[]
+  events QrClaimEvent[]
+  @@index([status,createdAt])
+  @@index([guardianId,studentId,createdAt])
+  @@map("qr_claims")
+}
+
+model QrClaimAllocation {
+  claimId String @db.Uuid
+  invoiceId String @db.Uuid
+  amount Decimal @db.Decimal(12,2)
+  claim QrClaim @relation(fields:[claimId],references:[id],onDelete:Cascade)
+  invoice Invoice @relation(fields:[invoiceId],references:[id],onDelete:Restrict)
+  @@id([claimId,invoiceId])
+}
+
+model QrClaimEvent {
+  id String @id @default(uuid(7)) @db.Uuid
+  claimId String @db.Uuid
+  actorId String @db.Uuid
+  status QrClaimStatus
+  reference String?
+  note String?
+  image Bytes?
+  hasImage Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  claim QrClaim @relation(fields:[claimId],references:[id],onDelete:Cascade)
+  @@index([reference])
+  @@index([claimId,createdAt])
+}

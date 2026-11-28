@@ -28,11 +28,16 @@ export class PortalAccessService {
    * link the school switched off, and an id that does not exist all give the same answer.
    */
   async requireChild(actor: AuthUser, studentId: string): Promise<void> {
+    await this.requireChildLink(actor, studentId);
+  }
+
+  async requireChildLink(actor: AuthUser, studentId: string) {
     const link = await this.prisma.studentGuardian.findFirst({
       where: { studentId, portalAccess: true, guardian: { userId: actor.id } },
       select: { guardianId: true },
     });
     if (!link) throw new NotFoundException('Child not found');
+    return { guardianId: link.guardianId, studentId };
   }
 
   /** One of this child's enrollments, or the most recent one. Call only after requireChild. */

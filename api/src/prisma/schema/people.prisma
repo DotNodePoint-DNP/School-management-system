@@ -121,6 +121,7 @@ enum StudentDocumentType {
 }
 
 model Student {
+  qrClaims QrClaim[]
   id            String   @id @default(uuid(7)) @db.Uuid
   admissionNo   String   @unique @map("admission_no")
   firstName     String   @map("first_name")
@@ -153,6 +154,7 @@ model Student {
 }
 
 model Guardian {
+  qrClaims QrClaim[]
   id         String   @id @default(uuid(7)) @db.Uuid
   firstName  String   @map("first_name")
   middleName String?  @map("middle_name")

@@ -284,8 +284,11 @@ export class FiscalYearsService {
   }
 
   /** The open fiscal year covering a date. Used when issuing a document. */
-  async openFor(isoDate: string): Promise<{ id: string; label: string }> {
-    const row = await this.prisma.fiscalYear.findFirst({
+  async openFor(
+    isoDate: string,
+    db: Pick<Tx, 'fiscalYear'> = this.prisma,
+  ): Promise<{ id: string; label: string }> {
+    const row = await db.fiscalYear.findFirst({
       where: {
         startDate: { lte: isoToDate(isoDate) },
         endDate: { gte: isoToDate(isoDate) },

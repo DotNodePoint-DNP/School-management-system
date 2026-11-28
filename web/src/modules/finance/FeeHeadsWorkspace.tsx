@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -183,6 +184,7 @@ export default function FeeHeadsWorkspace({
     <section className="mx-auto w-full max-w-5xl space-y-5 text-ink">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
+          <Link href="/dashboard/finance" className="text-sm text-muted hover:underline">Finance overview</Link>
           <h1 className="text-3xl font-semibold">Fee heads</h1>
           <p className="mt-2 text-muted">
             Manage the charges used in school billing.

@@ -1,4 +1,5 @@
 export const financeSections = [
+  { slug: "qr-payments", label: "QR payments", permissions: ["fees:qr-review", "fees:qr-manage"] },
   {
     slug: "fiscal-years",
     label: "Fiscal years",

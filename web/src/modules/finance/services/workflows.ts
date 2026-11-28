@@ -190,7 +190,7 @@ export const forms: Record<string, FieldSpec[]> = {
   RecordPaymentDto: [
     {"key":"idempotencyKey","type":"text","required":true,"hint":"A new random UUID for each payment form. Sending the same one again returns the receipt already created."},
     {"key":"amount","type":"number","required":true,"min":0.01,"max":10000000},
-    {"key":"method","type":"text","required":true,"choices":["CASH","BANK_TRANSFER","CHEQUE","ESEWA","KHALTI","FONEPAY_QR"]},
+    {"key":"method","type":"text","required":true,"choices":["CASH","BANK_TRANSFER","CHEQUE","ESEWA","KHALTI"]},
     {"key":"reference","type":"text","hint":"Cheque number or transaction id. Required for every method except cash."},
     {"key":"paidOn","type":"date"},
     {"key":"paidOnBs","type":"text"},
@@ -214,7 +214,7 @@ export const forms: Record<string, FieldSpec[]> = {
     {"key":"reversed","type":"boolean"},
   ],
   DuesQueryDto: [
-    {"key":"studentIds","type":"list","required":true,"hint":"Comma-separated student ids (at most 10), for example a family."},
+    {"key":"studentIds","type":"list","required":true,"hint":"Choose up to 10 students, such as children in the same family."},
   ],
   ReversePaymentDto: [
     {"key":"reason","type":"text","required":true,"min":10,"max":500},

@@ -1,4 +1,5 @@
 // src/app/dashboard/page.tsx
+import { FamilyOverview } from "@/modules/family/FamilyOverview";
 import { AccountStatus } from "@/modules/dashboard/components/AccountStatus";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/auth");
 
   const modules = modulesForPermissions(user.permissions);
+  if (modules.length === 1 && modules[0].slug === "family") return <><FamilyOverview/><AccountStatus/></>;
 
   return (
     <>

@@ -239,6 +239,7 @@ enum AdjustmentKind {
 
 /// Immutable once created: corrections are voids, reissues and credit notes.
 model Invoice {
+    qrRequests QrClaimAllocation[]
     id                String      @id @default(uuid(7)) @db.Uuid
     number            String      @unique
     fiscalYearId      String      @map("fiscal_year_id") @db.Uuid
@@ -356,6 +357,7 @@ enum PaymentMethod {
 
 /// Immutable once recorded. A mistake is a reversal, never an edit.
 model Payment {
+    qrClaim QrClaim?
     id              String        @id @default(uuid(7)) @db.Uuid
     receiptNo       String        @unique @map("receipt_no")
     fiscalYearId    String        @map("fiscal_year_id") @db.Uuid
