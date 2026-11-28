@@ -43,6 +43,18 @@ export class ApiClientError extends Error {
 
 export const accessDeniedEvent = "school:access-denied";
 
+export async function readAuthJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (error) {
+    if (!(error instanceof SyntaxError || error instanceof TypeError)) throw error;
+    throw new ApiClientError(
+      response.ok ? 502 : response.status,
+      "The sign-in service returned an incomplete or unreadable response. Please try again.",
+    );
+  }
+}
+
 let accessToken: string | null = null;
 let refreshInFlight: Promise<AuthLoginResponse | null> | null = null;
 
@@ -275,7 +287,7 @@ export function refreshApiSession(): Promise<AuthLoginResponse | null> {
           setApiAccessToken(null);
           return null;
         }
-        const payload: unknown = await response.json();
+        const payload = await readAuthJson(response);
         if (
           !payload ||
           typeof payload !== "object" ||

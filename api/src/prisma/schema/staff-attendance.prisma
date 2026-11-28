@@ -1,0 +1,72 @@
+enum StaffPunchKind {
+  IN
+  OUT
+}
+
+enum StaffRequestKind {
+  LEAVE
+  MISSED_IN
+  MISSED_OUT
+}
+
+enum StaffRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StaffAttendancePolicy {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String
+  latitude    Float
+  longitude   Float
+  radius      Int
+  startsAt    String
+  endsAt      String
+  grace       Int
+  offDays     Int[]
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  createdBy   String   @db.Uuid
+  punches     StaffPunch[]
+  @@index([createdAt])
+  @@map("staff_attendance_policies")
+}
+
+model StaffPunch {
+  id        String @id @default(uuid(7)) @db.Uuid
+  staffId   String @db.Uuid
+  staff     Staff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  workDate  DateTime @db.Date
+  kind      StaffPunchKind
+  at        DateTime @db.Timestamptz(6)
+  policyId  String @db.Uuid
+  policy    StaffAttendancePolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  distance  Float?
+  accuracy  Float?
+  requestId String? @unique @db.Uuid
+  request   StaffAttendanceRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  @@unique([staffId, workDate, kind])
+  @@index([workDate])
+  @@map("staff_punches")
+}
+
+model StaffAttendanceRequest {
+  id         String @id @default(uuid(7)) @db.Uuid
+  staffId    String @db.Uuid
+  staff      Staff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  kind       StaffRequestKind
+  fromDate   DateTime @db.Date
+  toDate     DateTime @db.Date
+  proposedAt DateTime? @db.Timestamptz(6)
+  requestedBy String @db.Uuid
+  reason     String
+  status     StaffRequestStatus @default(PENDING)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  reviewedAt DateTime? @db.Timestamptz(6)
+  reviewedBy String? @db.Uuid
+  reviewNote String?
+  punch      StaffPunch?
+  @@index([staffId, fromDate, toDate])
+  @@index([status, createdAt])
+  @@map("staff_attendance_requests")
+}

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-  currentUserOrResponse,
+  issuedSessionResponse,
   readRequestJson,
   readApiResponse,
   requestBackend,
   sameOriginRequest,
-  setAuthCookies,
-  validIssuedSession,
 } from "@/lib/api/auth-server";
 import type { BackendAuthSession } from "@/lib/api/contracts";
 
@@ -44,22 +42,5 @@ export async function POST(request: Request) {
   });
   const result = await readApiResponse<BackendAuthSession>(backend);
   if ("error" in result) return result.error;
-  if (!validIssuedSession(result.data)) {
-    throw new Error("The backend returned an invalid login session.");
-  }
-
-  const mappedUser = currentUserOrResponse(result.data.user);
-  if ("error" in mappedUser) return mappedUser.error;
-
-  const response = NextResponse.json({
-    ...result.data,
-    user: mappedUser.user,
-  });
-  await setAuthCookies(
-    response,
-    backend,
-    result.data.user,
-    result.data.accessToken,
-  );
-  return response;
+  return issuedSessionResponse(result.data, backend);
 }

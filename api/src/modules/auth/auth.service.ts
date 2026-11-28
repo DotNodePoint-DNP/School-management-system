@@ -300,6 +300,7 @@ export class AuthService {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        staff: { select: { status: true } },
         roles: {
           select: {
             role: {
@@ -326,6 +327,7 @@ export class AuthService {
       mustChangePassword: user.mustChangePassword,
       roles: user.roles.map((r) => r.role.name),
       permissions: [
+        ...(user.staff?.status === 'ACTIVE' ? ['staff-attendance:self'] : []),
         ...new Set(
           user.roles.flatMap((r) =>
             r.role.permissions.map(

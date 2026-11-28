@@ -17,6 +17,7 @@ export async function StaffDirectory({teachingOnly=false,initialId}:{teachingOnl
 
   return (
     <StaffWorkspace
+      canReadPayroll={permissions.includes("payroll:read")}
       teachingOnly={teachingOnly}
       initialId={initialId}
       canCreateLogin={canCreateLogin}

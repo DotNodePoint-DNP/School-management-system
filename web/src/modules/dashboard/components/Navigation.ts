@@ -81,6 +81,16 @@ const NAV_MODULES: NavModule[] = [
         permissions: ["staff:read", "staff:manage"],
       },
       {
+        slug: "attendance",
+        label: "Staff attendance & leave",
+        permissions: ["staff-attendance:self", "staff-attendance:review"],
+      },
+      {
+        slug: "payroll",
+        label: "Payroll",
+        permissions: ["payroll:read"],
+      },
+      {
         slug: "teacher-directory",
         label: "Teacher directory",
         href: "/dashboard/student-info/teacher-directory",
@@ -232,6 +242,15 @@ const NAV_MODULES: NavModule[] = [
     ],
   },
   {
+    slug: "documents",
+    label: "Documents",
+    icon: "book",
+    sections: [
+      { slug: "create", label: "Create document", permissions: ["documents:issue"] },
+      { slug: "register", label: "Issued register", permissions: ["documents:issue"] },
+    ],
+  },
+  {
     slug: "finance",
     label: "Finance",
     icon: "wallet",
@@ -286,7 +305,7 @@ const NAV_MODULES: NavModule[] = [
       {
         slug: "document-template",
         label: "Document & notification templates",
-        permissions: ["school:manage"],
+        permissions: ["school:manage", "documents:design", "documents:publish"],
       },
     ],
   },
