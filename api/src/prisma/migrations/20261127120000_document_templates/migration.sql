@@ -1,0 +1,15 @@
+CREATE TABLE document_templates (id uuid PRIMARY KEY, title text NOT NULL, kind text NOT NULL CHECK(kind IN ('ID_CARD','CERTIFICATE')), revision integer NOT NULL DEFAULT 1, draft jsonb NOT NULL);
+CREATE TABLE document_versions (id uuid PRIMARY KEY, template_id uuid NOT NULL REFERENCES document_templates ON UPDATE CASCADE ON DELETE RESTRICT, revision integer NOT NULL, title text NOT NULL, layout jsonb NOT NULL, UNIQUE(template_id, revision));
+CREATE TABLE document_artwork (id uuid PRIMARY KEY, image bytea NOT NULL);
+CREATE TABLE document_batches (id uuid PRIMARY KEY, version_id uuid NOT NULL REFERENCES document_versions ON UPDATE CASCADE ON DELETE RESTRICT, actor_id uuid NOT NULL, digest text NOT NULL, envelope jsonb NOT NULL);
+CREATE TABLE document_issues (id uuid PRIMARY KEY, batch_id uuid NOT NULL REFERENCES document_batches ON UPDATE CASCADE ON DELETE RESTRICT, enrollment_id uuid NOT NULL, serial text NOT NULL UNIQUE, name text NOT NULL, admission_no text NOT NULL, snapshot jsonb NOT NULL, replaces_id uuid UNIQUE REFERENCES document_issues ON UPDATE CASCADE ON DELETE RESTRICT, reason text, created_at timestamptz(6) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX document_issues_admission_no_idx ON document_issues(admission_no);
+CREATE INDEX document_issues_batch_id_idx ON document_issues(batch_id);
+CREATE INDEX document_issues_created_at_serial_idx ON document_issues(created_at DESC, serial);
+INSERT INTO permissions (id,module,action) SELECT gen_random_uuid(),'documents',action FROM (VALUES ('design'),('publish'),('issue'),('print-signed')) p(action) ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions (role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.name='ADMIN' AND p.module='documents' ON CONFLICT DO NOTHING;
+ALTER TABLE document_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_artwork ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_issues ENABLE ROW LEVEL SECURITY;

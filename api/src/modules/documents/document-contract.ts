@@ -1,8 +1,22 @@
 import type { Letterhead } from '../school/letterhead.service.js';
 
-/** The shape the web app prints. Add 'MARKSHEET' | 'CERTIFICATE' | 'ID_CARD' here when those documents exist. */
+/** Version 1 documents use the fixed A4 portrait envelope. */
 export type PrintDocumentKind =
   'REPORT_CARD' | 'RECEIPT' | 'INVOICE' | 'STATEMENT' | 'FEE_VOUCHER';
+
+export type TemplateDocumentKind =
+  'ID_CARD' | 'CERTIFICATE' | 'OFFICIAL_LETTER';
+
+export interface TemplatePrintEnvelope extends Omit<
+  PrintEnvelope,
+  'schemaVersion' | 'paper'
+> {
+  schemaVersion: 2;
+  paper: { width: number; height: number };
+  kind: TemplateDocumentKind;
+  versionId: string;
+  templateTitle: string;
+}
 
 export interface PrintSignatory {
   /** PRINCIPAL, EXAM_CONTROLLER, ACCOUNTANT, OTHER:<label>, or CLASS_TEACHER. */
