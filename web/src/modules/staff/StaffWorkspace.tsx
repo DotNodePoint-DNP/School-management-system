@@ -51,6 +51,7 @@ import {
 } from "./components/StaffDialogs";
 
 type Props = {
+  canReadPayroll: boolean;
   teachingOnly?:boolean;
   initialId?:string;
   canRead: boolean;
@@ -96,6 +97,7 @@ function initials(name: string) {
 
 export default function StaffWorkspace({
   teachingOnly=false,initialId,
+  canReadPayroll,
   canRead,
   canManage,
   canLinkLogin,
@@ -393,6 +395,7 @@ export default function StaffWorkspace({
       )}
       {selectedStaff && dialog === "detail" && (
         <StaffDetailDialog
+          canReadPayroll={canReadPayroll}
           canCreateLogin={canCreateLogin}
           canManage={canManage}
           canReadRoles={canReadRoles}

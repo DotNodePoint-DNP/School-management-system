@@ -165,5 +165,16 @@ export const AUDIT_ACTIONS = [
   'exam.release_set',
   'guardian.portal_access_changed',
   'website.saved',
+  'payroll.rate_saved',
+  'payroll.generated',
+  'payroll.entry_reviewed',
+  'payroll.finalized',
+  'payroll.reopened',
+  'payroll.payment_recorded',
+  'payroll.payment_voided',
+  'payroll.advance_recorded',
+  'payroll.preference_saved',
+  'payroll.supplement_created',
+  'payroll.supplement_locked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
